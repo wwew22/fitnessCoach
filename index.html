@@ -2,24 +2,54 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gym Coach</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link rel="stylesheet" href="style.css"/>
-  <link rel="manifest" href="manifest.json">
+  <title>Gym AI Coach</title>
 
-  <meta name="theme-color" content="#0a0a0c"/>
+  <meta name="theme-color" content="#0f0f12" />
+  <link rel="manifest" href="manifest.json" />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-
 <body>
-  <div id="app"></div>
+
+  <header>
+    <div>
+      <h1>Gym AI Coach</h1>
+      <p>Adaptive Workout Tracker</p>
+    </div>
+
+    <div class="progress-circle">
+      <span id="progressText">0%</span>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <main id="workoutContainer"></main>
+
+  <section class="ai-card">
+    <h2>AI Coach</h2>
+    <p id="aiMessage"></p>
+  </section>
+
+  <div class="timer-bar">
+    <div>
+      Rest Timer
+      <strong id="timerText">0s</strong>
+    </div>
+
+    <div class="timer-buttons">
+      <button data-timer="60">60s</button>
+      <button data-timer="90">90s</button>
+      <button data-timer="120">120s</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
-
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js");
-    }
-  </script>
 </body>
 </html>
