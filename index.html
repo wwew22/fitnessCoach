@@ -175,6 +175,11 @@ const EXERCISES = [
   E("Leg Extension","quads","machine","beginner",3,"12-15","Squeeze at the top, control down."),
   E("Goblet Squat","quads","dumbbell","beginner",3,"10-15","Great squat pattern for beginners."),
   E("Smith Machine Squat","quads","machine","beginner",4,"8-12","Stable path for learning depth."),
+  E("Bodyweight Squat","quads","bodyweight","beginner",3,"15-25","Sit back into the heels, chest up."),
+  E("Bodyweight Lunge","quads","bodyweight","beginner",3,"12/leg","Long step, knee tracks over toes."),
+  E("Pistol Squat (Quads)","quads","bodyweight","advanced",3,"5-8/leg","Single-leg squat to depth, control it."),
+  E("Wall Sit (Quads)","quads","bodyweight","beginner",3,"40-60s","Thighs parallel, back flat on the wall."),
+  E("Jump Squat","quads","bodyweight","intermediate",3,"12-15","Explode up, land soft."),
 
   // ───────── HAMSTRINGS ─────────
   E("Romanian Deadlift","hamstrings","barbell","intermediate",4,"8-10","Hinge at hips, soft knees, feel the stretch."),
@@ -184,10 +189,14 @@ const EXERCISES = [
   E("Good Mornings","hamstrings","barbell","advanced",3,"8-10","Light load, perfect hip hinge."),
   E("Nordic Curl","hamstrings","bodyweight","advanced",3,"6-10","Eccentric hamstring strength."),
   E("Glute Ham Raise","hamstrings","machine","advanced",3,"8-12","Posterior-chain powerhouse."),
+  E("Single-Leg Glute Bridge","hamstrings","bodyweight","beginner",3,"12/leg","Drive through the heel, squeeze."),
+  E("Bodyweight Good Morning","hamstrings","bodyweight","beginner",3,"15","Hands behind head, hinge at the hips."),
 
   // ───────── GLUTES ─────────
   E("Hip Thrust","glutes","barbell","intermediate",4,"8-12","Drive through heels, full lockout squeeze."),
   E("Glute Bridge","glutes","bodyweight","beginner",3,"15-20","Posterior pelvic tilt at the top."),
+  E("Frog Pumps","glutes","bodyweight","beginner",3,"20-25","Soles together, pump the hips up."),
+  E("Bodyweight Step-up","glutes","bodyweight","beginner",3,"12/leg","Use a bench or sturdy chair, drive through the top leg."),
   E("Cable Kickback","glutes","cable","beginner",3,"12-15","Squeeze the glute, don't arch the back."),
   E("Bulgarian Split Squat (Glute)","glutes","dumbbell","intermediate",3,"10/leg","Longer stride biases glutes."),
   E("Sumo Deadlift","glutes","barbell","advanced",4,"5-8","Wide stance, knees out."),
@@ -248,6 +257,23 @@ const EXERCISES = [
 
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
 const EX_BY_NAME = Object.fromEntries(EXERCISES.map(e=>[e.name,e]));
+// Pick a few sensible exercises for a category (for auto-fill when a focus is selected).
+function autoPickFor(catId, mode, existingNames, count){
+  count = count||3;
+  let pool=EXERCISES.filter(e=>e.cat===catId);
+  if(mode==="beginner") pool=pool.filter(e=>e.lvl!=="advanced");
+  if(!pool.length) pool=EXERCISES.filter(e=>e.cat===catId); // fall back if beginner filter emptied it
+  // prefer not-already-present, then take a spread
+  const fresh=pool.filter(e=>!(existingNames||[]).includes(e.name));
+  const src=fresh.length>=count?fresh:pool;
+  // bias toward earlier (more standard) entries but include some variety
+  const chosen=[];
+  const step=Math.max(1,Math.floor(src.length/count));
+  for(let i=0;i<src.length && chosen.length<count;i+=step) chosen.push(src[i]);
+  // top up if needed
+  for(let i=0;i<src.length && chosen.length<count;i++){ if(!chosen.includes(src[i])) chosen.push(src[i]); }
+  return chosen.map(e=>({id:uid(),name:e.name,cat:e.cat,sets:e.sets,reps:e.reps,tip:e.tip}));
+}
 const EQUIP_LABEL = {barbell:"Barbell",dumbbell:"Dumbbell",machine:"Machine",cable:"Cable",bodyweight:"Bodyweight",kettlebell:"Kettlebell",band:"Band",none:"No equipment"};
 const LEVEL_LABEL = {beginner:"Beginner",intermediate:"Intermediate",advanced:"Advanced"};
 const LEVEL_COLOR = {beginner:"#2dcd7a",intermediate:"#47c8ff",advanced:"#ff6b35"};
@@ -428,6 +454,28 @@ function homeDay(mode, rot){
 
 // ═══════════════ HELPERS ═══════════════
 function uid(){ return Math.random().toString(36).slice(2,9); }
+// Global "back" stack. Each open layer registers a close-handler; the left-edge
+// swipe (and the single global listener) invokes only the topmost handler, so
+// nested layers close one at a time without double-firing.
+const BACK_STACK=[];
+let BACK_LISTENER_INIT=false;
+function initBackListener(){
+  if(BACK_LISTENER_INIT) return; BACK_LISTENER_INIT=true;
+  let sx=0,sy=0,tracking=false;
+  document.addEventListener("touchstart",e=>{ const t=e.touches[0]; if(t.clientX<=28){ sx=t.clientX; sy=t.clientY; tracking=true; } else tracking=false; },{passive:true});
+  document.addEventListener("touchend",e=>{ if(!tracking) return; tracking=false; const t=e.changedTouches[0]; const dx=t.clientX-sx,dy=t.clientY-sy; if(dx>60&&Math.abs(dy)<50){ const fn=BACK_STACK[BACK_STACK.length-1]; if(fn){ try{navigator.vibrate&&navigator.vibrate(8);}catch{} fn(); } } },{passive:true});
+}
+// Register a back-handler while `active` is true. Topmost registered wins.
+function useBackHandler(active, handler){
+  const ref=useRef(handler); ref.current=handler;
+  useEffect(()=>{
+    initBackListener();
+    if(!active) return;
+    const entry=()=>ref.current();
+    BACK_STACK.push(entry);
+    return ()=>{ const i=BACK_STACK.indexOf(entry); if(i>=0) BACK_STACK.splice(i,1); };
+  },[active]);
+}
 function getTodayKey(){ return ["sun","mon","tue","wed","thu","fri","sat"][new Date().getDay()]; }
 function fmtDate(ts){ return new Date(ts).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
@@ -488,20 +536,28 @@ function RestTimer({onClose}){
 
 // ═══════════════ EXERCISE PICKER ═══════════════
 function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose, replaceMode, replaceName, onReplace}){
+  useBackHandler(true, ()=>onClose());
   const [activeCat,setActiveCat]=useState((preselectCats&&preselectCats[0])||"chest");
   const [q,setQ]=useState("");
   const [eq,setEq]=useState("all");
   const [picked,setPicked]=useState({});
   const allEquip=useMemo(()=>["all",...Array.from(new Set(EXERCISES.map(e=>e.eq)))],[]);
+  // Map a category to its broader muscle group, and gather sibling categories.
+  const groupOf=cid=>{ const c=CAT_BY_ID[cid]; return c?c.group:null; };
+  const siblingCats=useMemo(()=>{ const g=groupOf(activeCat); if(!g) return [activeCat]; return CATEGORIES.filter(c=>c.group===g).map(c=>c.id); },[activeCat]);
+  const [usedFallback,setUsedFallback]=useState(false);
   const list=useMemo(()=>{
-    return EXERCISES.filter(e=>{
-      if(q){ if(!e.name.toLowerCase().includes(q.toLowerCase())) return false; }
-      else if(e.cat!==activeCat) return false;
-      if(eq!=="all"&&e.eq!==eq) return false;
-      if(mode==="beginner"&&e.lvl==="advanced") return false;
-      return true;
-    });
-  },[q,activeCat,eq,mode]);
+    const passLevel=e=>!(mode==="beginner"&&e.lvl==="advanced");
+    const passEq=e=>(eq==="all"||e.eq===eq);
+    if(q){ setUsedFallback(false); return EXERCISES.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())&&passEq(e)&&passLevel(e)); }
+    // primary: exact category + equipment
+    let primary=EXERCISES.filter(e=>e.cat===activeCat&&passEq(e)&&passLevel(e));
+    if(primary.length>0 || eq==="all"){ setUsedFallback(false); return primary; }
+    // fallback: same muscle group (sibling categories) with this equipment
+    const fb=EXERCISES.filter(e=>siblingCats.includes(e.cat)&&passEq(e)&&passLevel(e));
+    setUsedFallback(fb.length>0);
+    return fb;
+  },[q,activeCat,eq,mode,siblingCats]);
   const toggle=ex=>{
     if(replaceMode){ onReplace({id:uid(),name:ex.name,cat:ex.cat,sets:ex.sets,reps:ex.reps,tip:ex.tip}); onClose(); return; }
     setPicked(p=>{ const k=ex.name; const n={...p}; if(n[k])delete n[k]; else n[k]=ex; return n; });
@@ -509,7 +565,7 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose, rep
   const count=Object.keys(picked).length;
   const commit=()=>{ onAdd(Object.values(picked).map(e=>({id:uid(),name:e.name,cat:e.cat,sets:e.sets,reps:e.reps,tip:e.tip}))); onClose(); };
   return h("div",{style:{position:"fixed",inset:0,zIndex:1000,background:"var(--bg)",display:"flex",flexDirection:"column",maxWidth:640,margin:"0 auto"}},
-    h("div",{style:{padding:"16px 16px 10px",borderBottom:"1px solid var(--border)"}},
+    h("div",{style:{padding:"calc(16px + env(safe-area-inset-top)) 16px 10px",borderBottom:"1px solid var(--border)"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
         h("span",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase",letterSpacing:"0.02em"}},replaceMode?"Replace exercise":"Add Exercises"),
         h("button",{onClick:onClose,style:{background:"none",border:"none",color:"var(--muted)",fontSize:"1.3rem",cursor:"pointer"}},"✕")),
@@ -520,7 +576,8 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose, rep
     !q&&h("div",{style:{display:"flex",gap:6,padding:"10px 16px",overflowX:"auto",borderBottom:"1px solid var(--border2)"}},
       ...CATEGORIES.map(c=>h("button",{key:c.id,onClick:()=>setActiveCat(c.id),style:{flexShrink:0,padding:"7px 12px",borderRadius:6,border:"1px solid "+(activeCat===c.id?c.color:"var(--border)"),background:activeCat===c.id?c.color+"1f":"var(--surface)",color:activeCat===c.id?c.color:"var(--muted)",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:5}},h("span",null,c.icon),c.name))),
     h("div",{style:{flex:1,overflowY:"auto",padding:"12px 16px 90px"}},
-      list.length===0&&h("div",{style:{textAlign:"center",color:"var(--muted)",padding:"40px 0",fontSize:"0.85rem"}},"No exercises match."),
+      usedFallback&&!q&&h("div",{style:{fontSize:"0.66rem",color:"var(--cyan)",background:"rgba(71,200,255,0.07)",border:"1px solid rgba(71,200,255,0.2)",borderRadius:6,padding:"8px 11px",marginBottom:10,lineHeight:1.5}},"No "+EQUIP_LABEL[eq].toLowerCase()+" moves in "+CAT_BY_ID[activeCat].name+" alone — showing "+EQUIP_LABEL[eq].toLowerCase()+" options across "+(CAT_BY_ID[activeCat].group)+" instead."),
+      list.length===0&&h("div",{style:{textAlign:"center",color:"var(--muted)",padding:"40px 0",fontSize:"0.85rem",lineHeight:1.6}},"No "+(eq==="all"?"":EQUIP_LABEL[eq].toLowerCase()+" ")+"exercises here.",h("br"),h("span",{style:{fontSize:"0.72rem"}},"Try \"All gear\" or another category.")),
       ...list.map(ex=>{
         const sel=!replaceMode&&!!picked[ex.name]; const already=existingNames.includes(ex.name); const c=CAT_BY_ID[ex.cat];
         return h("div",{key:ex.name,onClick:()=>toggle(ex),style:{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",marginBottom:6,background:sel?"rgba(232,255,71,0.07)":"var(--surface)",border:"1px solid "+(sel?"var(--lime)":"var(--border)"),borderRadius:7,cursor:"pointer"}},
@@ -542,9 +599,22 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose, rep
 // ═══════════════ DAY EDITOR ═══════════════
 function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
   const day=plan[dayKey]; const [picker,setPicker]=useState(false); const [replacing,setReplacing]=useState(null);
+  useBackHandler(true, ()=>onClose());
   const update=fn=>setPlan(p=>({...p,[dayKey]:fn({...p[dayKey]})}));
   const setTitle=v=>update(d=>({...d,title:v}));
-  const toggleCat=cid=>update(d=>{ const cats=d.cats.includes(cid)?d.cats.filter(x=>x!==cid):[...d.cats,cid]; return {...d,cats}; });
+  const toggleCat=cid=>update(d=>{
+    if(d.cats.includes(cid)){
+      // deselect: remove the category and its exercises
+      const items=d.items.filter(i=>i.cat!==cid);
+      return {...d,cats:d.cats.filter(x=>x!==cid),items};
+    } else {
+      // select: add the category and auto-fill a few exercises for it
+      const existing=d.items.map(i=>i.name);
+      const added=autoPickFor(cid,mode,existing,3);
+      setTimeout(()=>toast("Added "+added.length+" "+(CAT_BY_ID[cid]?CAT_BY_ID[cid].name:"")+" exercise"+(added.length>1?"s":"")),0);
+      return {...d,cats:[...d.cats,cid],items:[...d.items,...added]};
+    }
+  });
   const addItems=items=>{ update(d=>({...d,items:[...d.items,...items]})); toast("Added "+items.length+" exercise"+(items.length>1?"s":"")); };
   const removeItem=id=>update(d=>({...d,items:d.items.filter(i=>i.id!==id)}));
   const moveItem=(idx,dir)=>update(d=>{ const items=[...d.items]; const j=idx+dir; if(j<0||j>=items.length)return d; [items[idx],items[j]]=[items[j],items[idx]]; return {...d,items}; });
@@ -553,7 +623,7 @@ function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
   return h("div",{style:{position:"fixed",inset:0,zIndex:900,background:"var(--bg)",overflowY:"auto",maxWidth:640,margin:"0 auto"}},
     picker&&h(ExercisePicker,{preselectCats:day.cats,mode,existingNames:day.items.map(i=>i.name),onAdd:addItems,onClose:()=>setPicker(false)}),
     replacing&&h(ExercisePicker,{preselectCats:[replacing.cat],mode,existingNames:day.items.map(i=>i.name),replaceMode:true,replaceName:replacing.name,onReplace:replaceItem,onClose:()=>setReplacing(null)}),
-    h("div",{style:{padding:"18px 16px 90px"}},
+    h("div",{style:{padding:"calc(18px + env(safe-area-inset-top)) 16px 90px"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}},
         h("button",{onClick:onClose,style:{background:"none",border:"none",color:"var(--cyan)",cursor:"pointer",fontSize:"0.74rem",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}},"← Done"),
         h("span",{style:{fontSize:"0.66rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em"}},DAY_DEFS.find(d=>d.key===dayKey).full)),
@@ -753,6 +823,14 @@ function App(){
   useEffect(()=>{ save(LS.homeRot,homeRot); },[homeRot]);
   useEffect(()=>{ if(mode){save(LS.mode,mode); save(LS.schema,SCHEMA);} },[mode]);
 
+  // Back-stack registrations (topmost open layer handles the swipe / closes first).
+  useBackHandler(tab!=="workout", ()=>setTab("workout"));            // base: tab → workout
+  useBackHandler(showTimer, ()=>setShowTimer(false));
+  useBackHandler(showWeek, ()=>setShowWeek(false));
+  useBackHandler(showData, ()=>setShowData(false));
+  useBackHandler(!!confirm, ()=>setConfirm(null));
+  // editDay & replaceTarget register their own back-handlers inside their components.
+
   // First-launch mode selection, or re-opened via the logo
   if(!mode || showModeSelect) return h(ModeSelect,{current:mode,onBack:mode?()=>setShowModeSelect(false):null,onPick:m=>{setMode(m); setShowModeSelect(false); toast(m==="beginner"?"Beginner mode — curated, simple.":"Advanced mode — full library unlocked.");}});
 
@@ -911,7 +989,7 @@ function App(){
               const hasLog=(items.some(it=>(log[it.id]?.sets?.length||0)>0));
               setConfirm({icon:"🏠",title:"Switch to a home day?",body:"Swaps just "+DAY_DEFS.find(d=>d.key===activeDay).full+" to a full-body home session ("+mode+" level). Your other days and your history are untouched — you can restore this day anytime."+(hasLog?" Sets logged today will be cleared first.":""),yes:"Switch to home",onYes:swapToHome});
             }
-          },style:{flex:1,padding:"11px",background:isSwapped?"rgba(255,212,59,0.1)":"var(--surface)",border:"1px solid "+(isSwapped?"rgba(255,212,59,0.4)":"var(--border)"),borderRadius:7,color:isSwapped?"#ffd43b":"var(--lime)",fontWeight:700,fontSize:"0.72rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},isSwapped?"↩️ Restore "+(swap[activeDay].title||"original")+" day":"🏠 Switch this day to home"),
+          },style:{flex:1,padding:"11px",background:isSwapped?"rgba(255,212,59,0.1)":"var(--surface)",border:"1px solid "+(isSwapped?"rgba(255,212,59,0.4)":"var(--border)"),borderRadius:7,color:isSwapped?"#ffd43b":"var(--lime)",fontWeight:700,fontSize:"0.72rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},isSwapped?"↩️ Restore "+(swap[activeDay].title||"original")+" day":"🏠 Switch to home"),
           isSwapped&&(day.cats||[]).includes("home")&&h("button",{onClick:()=>{
             const hasLog=(items.some(it=>(log[it.id]?.sets?.length||0)>0));
             if(hasLog) setConfirm({icon:"🔀",title:"Reshuffle home workout?",body:"Picks a fresh set of home exercises for today. Sets logged today will be cleared (history is safe).",yes:"Reshuffle",onYes:()=>{reshuffleHome(); setConfirm(null);}});
@@ -968,6 +1046,7 @@ function App(){
 
 // ═══════════════ MODE SELECT (first launch / home) ═══════════════
 function ModeSelect({onPick, current, onBack}){
+  useBackHandler(!!onBack, ()=>onBack&&onBack());
   return h("div",{style:{minHeight:"100vh",maxWidth:640,margin:"0 auto",display:"flex",flexDirection:"column",justifyContent:"center",padding:"40px 22px"}},
     onBack&&h("button",{onClick:onBack,style:{position:"absolute",top:"calc(18px + env(safe-area-inset-top))",left:18,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.68rem",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",padding:"7px 12px",cursor:"pointer"}},"← Back"),
     h("div",{className:"fadeUp",style:{textAlign:"center",marginBottom:34}},
