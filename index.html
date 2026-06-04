@@ -487,7 +487,7 @@ function RestTimer({onClose}){
 }
 
 // ═══════════════ EXERCISE PICKER ═══════════════
-function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose}){
+function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose, replaceMode, replaceName, onReplace}){
   const [activeCat,setActiveCat]=useState((preselectCats&&preselectCats[0])||"chest");
   const [q,setQ]=useState("");
   const [eq,setEq]=useState("all");
@@ -502,14 +502,18 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose}){
       return true;
     });
   },[q,activeCat,eq,mode]);
-  const toggle=ex=>setPicked(p=>{ const k=ex.name; const n={...p}; if(n[k])delete n[k]; else n[k]=ex; return n; });
+  const toggle=ex=>{
+    if(replaceMode){ onReplace({id:uid(),name:ex.name,cat:ex.cat,sets:ex.sets,reps:ex.reps,tip:ex.tip}); onClose(); return; }
+    setPicked(p=>{ const k=ex.name; const n={...p}; if(n[k])delete n[k]; else n[k]=ex; return n; });
+  };
   const count=Object.keys(picked).length;
   const commit=()=>{ onAdd(Object.values(picked).map(e=>({id:uid(),name:e.name,cat:e.cat,sets:e.sets,reps:e.reps,tip:e.tip}))); onClose(); };
   return h("div",{style:{position:"fixed",inset:0,zIndex:1000,background:"var(--bg)",display:"flex",flexDirection:"column",maxWidth:640,margin:"0 auto"}},
     h("div",{style:{padding:"16px 16px 10px",borderBottom:"1px solid var(--border)"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
-        h("span",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase",letterSpacing:"0.02em"}},"Add Exercises"),
+        h("span",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase",letterSpacing:"0.02em"}},replaceMode?"Replace exercise":"Add Exercises"),
         h("button",{onClick:onClose,style:{background:"none",border:"none",color:"var(--muted)",fontSize:"1.3rem",cursor:"pointer"}},"✕")),
+      replaceMode&&replaceName&&h("div",{style:{fontSize:"0.7rem",color:"var(--muted)",marginBottom:10}},"Swapping out ",h("span",{style:{color:"var(--orange)",fontWeight:700}},replaceName),". Tap any exercise to use it instead."),
       h("input",{value:q,onChange:e=>setQ(e.target.value),placeholder:"Search all exercises…",style:{width:"100%",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"10px 12px",color:"var(--text)",fontSize:"0.9rem",outline:"none"}}),
       h("div",{style:{display:"flex",gap:6,marginTop:10,overflowX:"auto",paddingBottom:2}},
         ...allEquip.map(x=>h("button",{key:x,onClick:()=>setEq(x),style:{flexShrink:0,padding:"5px 11px",borderRadius:20,border:"1px solid "+(eq===x?"var(--cyan)":"var(--border)"),background:eq===x?"rgba(71,200,255,0.12)":"transparent",color:eq===x?"var(--cyan)":"var(--muted)",fontSize:"0.64rem",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},x==="all"?"All gear":EQUIP_LABEL[x]))) ),
@@ -518,9 +522,9 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose}){
     h("div",{style:{flex:1,overflowY:"auto",padding:"12px 16px 90px"}},
       list.length===0&&h("div",{style:{textAlign:"center",color:"var(--muted)",padding:"40px 0",fontSize:"0.85rem"}},"No exercises match."),
       ...list.map(ex=>{
-        const sel=!!picked[ex.name]; const already=existingNames.includes(ex.name); const c=CAT_BY_ID[ex.cat];
+        const sel=!replaceMode&&!!picked[ex.name]; const already=existingNames.includes(ex.name); const c=CAT_BY_ID[ex.cat];
         return h("div",{key:ex.name,onClick:()=>toggle(ex),style:{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",marginBottom:6,background:sel?"rgba(232,255,71,0.07)":"var(--surface)",border:"1px solid "+(sel?"var(--lime)":"var(--border)"),borderRadius:7,cursor:"pointer"}},
-          h("div",{style:{width:22,height:22,borderRadius:4,border:"2px solid "+(sel?"var(--lime)":"var(--border)"),background:sel?"var(--lime)":"transparent",color:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:800,flexShrink:0}},sel?"✓":""),
+          replaceMode?h("span",{style:{fontSize:"1rem",flexShrink:0,color:"var(--cyan)"}},"⇄"):h("div",{style:{width:22,height:22,borderRadius:4,border:"2px solid "+(sel?"var(--lime)":"var(--border)"),background:sel?"var(--lime)":"transparent",color:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:800,flexShrink:0}},sel?"✓":""),
           h("div",{style:{flex:1,minWidth:0}},
             h("div",{style:{fontWeight:600,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:7}},ex.name, already&&h("span",{style:{fontSize:"0.54rem",color:"var(--muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}},"· in plan")),
             h("div",{style:{fontSize:"0.66rem",color:"var(--muted)",marginTop:2,display:"flex",gap:8,flexWrap:"wrap"}},
@@ -530,14 +534,14 @@ function ExercisePicker({preselectCats, mode, existingNames, onAdd, onClose}){
               h("span",{className:"mono"},ex.sets+"×"+ex.reps))),
         );
       })),
-    count>0&&h("div",{style:{position:"fixed",bottom:0,left:0,right:0,maxWidth:640,margin:"0 auto",padding:"12px 16px calc(12px + env(safe-area-inset-bottom))",background:"linear-gradient(transparent,var(--bg) 30%)"}},
+    !replaceMode&&count>0&&h("div",{style:{position:"fixed",bottom:0,left:0,right:0,maxWidth:640,margin:"0 auto",padding:"12px 16px calc(12px + env(safe-area-inset-bottom))",background:"linear-gradient(transparent,var(--bg) 30%)"}},
       h("button",{onClick:commit,style:{width:"100%",padding:"14px",background:"var(--lime)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:800,fontSize:"0.9rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"Add "+count+" exercise"+(count>1?"s":"")))
   );
 }
 
 // ═══════════════ DAY EDITOR ═══════════════
 function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
-  const day=plan[dayKey]; const [picker,setPicker]=useState(false);
+  const day=plan[dayKey]; const [picker,setPicker]=useState(false); const [replacing,setReplacing]=useState(null);
   const update=fn=>setPlan(p=>({...p,[dayKey]:fn({...p[dayKey]})}));
   const setTitle=v=>update(d=>({...d,title:v}));
   const toggleCat=cid=>update(d=>{ const cats=d.cats.includes(cid)?d.cats.filter(x=>x!==cid):[...d.cats,cid]; return {...d,cats}; });
@@ -545,8 +549,10 @@ function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
   const removeItem=id=>update(d=>({...d,items:d.items.filter(i=>i.id!==id)}));
   const moveItem=(idx,dir)=>update(d=>{ const items=[...d.items]; const j=idx+dir; if(j<0||j>=items.length)return d; [items[idx],items[j]]=[items[j],items[idx]]; return {...d,items}; });
   const editItem=(id,field,val)=>update(d=>({...d,items:d.items.map(i=>i.id===id?{...i,[field]:val}:i)}));
+  const replaceItem=(newEx)=>{ const oldId=replacing?.id; update(d=>({...d,items:d.items.map(i=>i.id===oldId?newEx:i)})); setReplacing(null); toast("Replaced with "+newEx.name); };
   return h("div",{style:{position:"fixed",inset:0,zIndex:900,background:"var(--bg)",overflowY:"auto",maxWidth:640,margin:"0 auto"}},
     picker&&h(ExercisePicker,{preselectCats:day.cats,mode,existingNames:day.items.map(i=>i.name),onAdd:addItems,onClose:()=>setPicker(false)}),
+    replacing&&h(ExercisePicker,{preselectCats:[replacing.cat],mode,existingNames:day.items.map(i=>i.name),replaceMode:true,replaceName:replacing.name,onReplace:replaceItem,onClose:()=>setReplacing(null)}),
     h("div",{style:{padding:"18px 16px 90px"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}},
         h("button",{onClick:onClose,style:{background:"none",border:"none",color:"var(--cyan)",cursor:"pointer",fontSize:"0.74rem",letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}},"← Done"),
@@ -570,6 +576,7 @@ function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
           h("div",{style:{flex:1,minWidth:0}},
             h("div",{style:{fontWeight:700,fontSize:"0.86rem"}},it.name),
             h("div",{style:{fontSize:"0.62rem",color:c?c.color:"var(--muted)",marginTop:1}},c?c.icon+" "+c.name:"")),
+          h("button",{onClick:()=>setReplacing(it),title:"Replace",style:{background:"none",border:"none",color:"var(--cyan)",cursor:"pointer",fontSize:"1rem",flexShrink:0,padding:4}},"⇄"),
           h("button",{onClick:()=>removeItem(it.id),style:{background:"none",border:"none",color:"var(--orange)",cursor:"pointer",fontSize:"1rem",flexShrink:0,padding:4}},"🗑")),
         h("div",{style:{display:"flex",gap:8,marginTop:9}},
           h("div",{style:{flex:1}},
@@ -729,6 +736,7 @@ function App(){
   const [expanded,setExpanded]=useState({});
   const [showTimer,setShowTimer]=useState(false);
   const [editDay,setEditDay]=useState(null);
+  const [replaceTarget,setReplaceTarget]=useState(null);
   const [showData,setShowData]=useState(false);
   const [showWeek,setShowWeek]=useState(false);
   const [showModeSelect,setShowModeSelect]=useState(false);
@@ -814,9 +822,18 @@ function App(){
     toast("Week updated — "+tc+" training day"+(tc!==1?"s":""));
   };
 
+  const doReplace=(newEx)=>{
+    const oldId=replaceTarget?.id;
+    setLog(l=>{ const n={...l}; delete n[oldId]; return n; }); // clear old exercise's sets
+    setPlan(p=>({...p,[activeDay]:{...p[activeDay],items:p[activeDay].items.map(i=>i.id===oldId?newEx:i)}}));
+    setReplaceTarget(null);
+    toast("Replaced with "+newEx.name);
+  };
+
   return h("div",{style:{background:"var(--bg)",minHeight:"100vh",color:"var(--text)",maxWidth:640,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom)"}},
     showTimer&&h(RestTimer,{onClose:()=>setShowTimer(false)}),
     editDay&&h(DayEditor,{dayKey:editDay,plan,setPlan,mode,toast,onClose:()=>setEditDay(null)}),
+    replaceTarget&&h(ExercisePicker,{preselectCats:[replaceTarget.cat],mode,existingNames:items.map(i=>i.name),replaceMode:true,replaceName:replaceTarget.name,onReplace:doReplace,onClose:()=>setReplaceTarget(null)}),
     showData&&h(DataModal,{plan,log,history,toast,onClose:()=>setShowData(false),onImport:obj=>{ setPlan(obj.plan); setLog(obj.log||{}); setHistory(obj.history||[]); setSwap(obj.swap||{}); }}),
     showWeek&&h(WeekSetup,{plan,todayKey:getTodayKey(),toast,onClose:()=>setShowWeek(false),onApply:applyWeek}),
     toastState&&h(Toast,{key:toastState.k,msg:toastState.msg,action:toastState.action,onAction:()=>{toastState.onAction&&toastState.onAction(); setToastState(null);},onDone:()=>setToastState(null)}),
@@ -901,6 +918,9 @@ function App(){
             else reshuffleHome();
           },title:"New exercises",style:{flexShrink:0,padding:"11px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,color:"var(--cyan)",fontWeight:700,fontSize:"0.85rem",cursor:"pointer"}},"🔀")),
 
+        // edit button
+        h("button",{onClick:()=>setEditDay(activeDay),style:{width:"100%",marginBottom:14,padding:"11px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,color:"var(--cyan)",fontWeight:700,fontSize:"0.72rem",letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"⚙ Edit "+(day.title||"day")+" — add / remove / reorder exercises"),
+
 
         // empty
         items.length===0&&h("div",{style:{background:"var(--surface)",border:"1px dashed var(--border)",borderRadius:8,padding:"34px 20px",textAlign:"center"}},
@@ -932,7 +952,9 @@ function App(){
                       h("span",{style:{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",fontSize:"0.56rem",color:"var(--muted)",fontWeight:600,pointerEvents:"none"}},"kg")),
                     h("div",{style:{flex:0.7,position:"relative"}},
                       h("input",{type:"number",inputMode:"numeric",placeholder:"reps",value:rv,onChange:e=>setR(id,i,e.target.value),onClick:e=>e.stopPropagation(),className:"mono",style:{width:"100%",background:"var(--surface2)",border:"1px solid "+(sd?"rgba(45,205,122,0.3)":"var(--border)"),color:rv?"var(--cyan)":"var(--dim)",fontSize:"0.88rem",fontWeight:700,padding:"7px 10px",borderRadius:5,outline:"none",textAlign:"center"}}))); })),
-              h("button",{onClick:()=>setShowTimer(true),style:{marginTop:10,width:"100%",padding:"8px",background:"rgba(71,200,255,0.07)",border:"1px solid rgba(71,200,255,0.2)",borderRadius:5,cursor:"pointer",color:"var(--cyan)",fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}},"⏱ Start rest timer"))); }),
+              h("div",{style:{display:"flex",gap:8,marginTop:10}},
+                h("button",{onClick:()=>setShowTimer(true),style:{flex:1,padding:"8px",background:"rgba(71,200,255,0.07)",border:"1px solid rgba(71,200,255,0.2)",borderRadius:5,cursor:"pointer",color:"var(--cyan)",fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}},"⏱ Rest timer"),
+                h("button",{onClick:()=>setReplaceTarget(it),style:{flex:1,padding:"8px",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:5,cursor:"pointer",color:"var(--muted)",fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}},"⇄ Replace")))); }),
 
         // finish workout
         items.length>0&&h("button",{onClick:()=>setConfirm({icon:"🏁",title:"Finish workout?",body:"Logged sets will be saved to your history, and today's checkboxes will reset for next time.",yes:"Save to history",onYes:finishDay}),style:{width:"100%",marginTop:14,padding:"15px",background:doneCount>0?"var(--lime)":"var(--surface)",border:doneCount>0?"none":"1px solid var(--border)",borderRadius:8,color:doneCount>0?"var(--bg)":"var(--muted)",fontWeight:800,fontSize:"0.86rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"🏁 Finish & save workout"),
