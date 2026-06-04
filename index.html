@@ -731,6 +731,7 @@ function App(){
   const [editDay,setEditDay]=useState(null);
   const [showData,setShowData]=useState(false);
   const [showWeek,setShowWeek]=useState(false);
+  const [showModeSelect,setShowModeSelect]=useState(false);
   const [confirm,setConfirm]=useState(null);
   const [toastState,setToastState]=useState(null);
   const [swap,setSwap]=useState(()=>load(LS.swap,{})); // dayKey -> stashed original day
@@ -744,8 +745,8 @@ function App(){
   useEffect(()=>{ save(LS.homeRot,homeRot); },[homeRot]);
   useEffect(()=>{ if(mode){save(LS.mode,mode); save(LS.schema,SCHEMA);} },[mode]);
 
-  // First-launch mode selection
-  if(!mode) return h(ModeSelect,{onPick:m=>{setMode(m); toast(m==="beginner"?"Beginner mode — curated, simple.":"Advanced mode — full library unlocked.");}});
+  // First-launch mode selection, or re-opened via the logo
+  if(!mode || showModeSelect) return h(ModeSelect,{current:mode,onBack:mode?()=>setShowModeSelect(false):null,onPick:m=>{setMode(m); setShowModeSelect(false); toast(m==="beginner"?"Beginner mode — curated, simple.":"Advanced mode — full library unlocked.");}});
 
   const day=plan[activeDay];
   const items=day.items||[];
@@ -833,7 +834,7 @@ function App(){
     // HEADER
     h("div",{style:{padding:"calc(20px + env(safe-area-inset-top)) 16px 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
       h("div",null,
-        h("div",{style:{fontWeight:700,fontSize:"clamp(1.7rem,7.5vw,2.4rem)",letterSpacing:-1,textTransform:"uppercase",lineHeight:1}},"Gym ",h("span",{style:{color:"var(--lime)"}},"Coach")),
+        h("div",{onClick:()=>setShowModeSelect(true),title:"Change mode",style:{fontWeight:700,fontSize:"clamp(1.7rem,7.5vw,2.4rem)",letterSpacing:-1,textTransform:"uppercase",lineHeight:1,cursor:"pointer",display:"inline-flex",alignItems:"baseline",gap:7}},"Gym ",h("span",{style:{color:"var(--lime)"}},"Coach"),h("span",{style:{fontSize:"0.7rem",color:"var(--muted)",fontWeight:600,transform:"translateY(-2px)"}},"⌂")),
         h("div",{style:{fontSize:"0.56rem",color:"var(--muted)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:5,display:"flex",alignItems:"center",gap:7}},
           h("span",null,"Build · Track · Progress"),
           h("button",{onClick:()=>setMode(m=>{const n=m==="beginner"?"advanced":"beginner"; toast(n==="beginner"?"🌱 Beginner mode — tips on, advanced lifts hidden":"🔥 Advanced mode — full library unlocked"); return n;}),style:{background:mode==="beginner"?"rgba(45,205,122,0.14)":"rgba(255,107,53,0.14)",border:"1px solid "+(mode==="beginner"?"rgba(45,205,122,0.4)":"rgba(255,107,53,0.4)"),color:mode==="beginner"?"var(--green)":"var(--orange)",borderRadius:20,padding:"2px 9px",fontSize:"0.54rem",fontWeight:700,letterSpacing:"0.06em",cursor:"pointer",textTransform:"uppercase"}},mode))),
@@ -943,19 +944,20 @@ function App(){
   );
 }
 
-// ═══════════════ MODE SELECT (first launch) ═══════════════
-function ModeSelect({onPick}){
+// ═══════════════ MODE SELECT (first launch / home) ═══════════════
+function ModeSelect({onPick, current, onBack}){
   return h("div",{style:{minHeight:"100vh",maxWidth:640,margin:"0 auto",display:"flex",flexDirection:"column",justifyContent:"center",padding:"40px 22px"}},
+    onBack&&h("button",{onClick:onBack,style:{position:"absolute",top:"calc(18px + env(safe-area-inset-top))",left:18,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.68rem",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",padding:"7px 12px",cursor:"pointer"}},"← Back"),
     h("div",{className:"fadeUp",style:{textAlign:"center",marginBottom:34}},
       h("div",{style:{fontWeight:700,fontSize:"2.4rem",letterSpacing:-1,textTransform:"uppercase",lineHeight:1}},"Gym ",h("span",{style:{color:"var(--lime)"}},"Coach")),
-      h("div",{style:{fontSize:"0.7rem",color:"var(--muted)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:10}},"Choose your experience")),
+      h("div",{style:{fontSize:"0.7rem",color:"var(--muted)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:10}},current?"Switch your experience":"Choose your experience")),
     ...[
       {m:"beginner",icon:"🌱",col:"var(--green)",title:"Beginner",desc:"Curated exercises, form tips on every move, simpler choices. Advanced lifts hidden until you're ready."},
       {m:"advanced",icon:"🔥",col:"var(--orange)",title:"Advanced",desc:"Full 120+ exercise library, every variation and equipment type, build any split you want."},
-    ].map((o,i)=>h("button",{key:o.m,onClick:()=>onPick(o.m),className:"fadeUp",style:{animationDelay:(i*0.08)+"s",textAlign:"left",background:"var(--surface)",border:"1px solid var(--border)",borderLeft:"3px solid "+o.col,borderRadius:10,padding:"20px 18px",marginBottom:12,cursor:"pointer",display:"flex",gap:15,alignItems:"flex-start"}},
+    ].map((o,i)=>{ const active=current===o.m; return h("button",{key:o.m,onClick:()=>onPick(o.m),className:"fadeUp",style:{animationDelay:(i*0.08)+"s",textAlign:"left",background:active?o.col+"14":"var(--surface)",border:"1px solid "+(active?o.col:"var(--border)"),borderLeft:"3px solid "+o.col,borderRadius:10,padding:"20px 18px",marginBottom:12,cursor:"pointer",display:"flex",gap:15,alignItems:"flex-start"}},
       h("span",{style:{fontSize:"1.8rem"}},o.icon),
-      h("div",null,h("div",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase",color:o.col,marginBottom:4}},o.title),h("div",{style:{fontSize:"0.76rem",color:"var(--muted)",lineHeight:1.55}},o.desc)))),
-    h("div",{style:{textAlign:"center",fontSize:"0.64rem",color:"var(--dim)",marginTop:16,lineHeight:1.6}},"You can switch modes anytime from the badge in the header."));
+      h("div",{style:{flex:1}},h("div",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase",color:o.col,marginBottom:4,display:"flex",alignItems:"center",gap:8}},o.title,active&&h("span",{style:{fontSize:"0.5rem",color:o.col,border:"1px solid "+o.col,borderRadius:10,padding:"1px 7px",letterSpacing:"0.06em"}},"Current")),h("div",{style:{fontSize:"0.76rem",color:"var(--muted)",lineHeight:1.55}},o.desc))); }),
+    h("div",{style:{textAlign:"center",fontSize:"0.64rem",color:"var(--dim)",marginTop:16,lineHeight:1.6}},"Tap the Gym Coach logo anytime to return here. Your plan and history are kept."));
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(h(App));
