@@ -52,10 +52,48 @@ const CATEGORIES = [
   { id:"swimming",  name:"Swimming",   icon:"🏊", color:"#4dd0ff", group:"cardio" },
   { id:"mobility",  name:"Mobility",   icon:"🧘", color:"#b197fc", group:"recovery" },
   { id:"fullbody",  name:"Full Body",  icon:"⚡", color:"#e8ff47", group:"compound" },
+  { id:"home",      name:"Home",       icon:"🏠", color:"#ffd43b", group:"home" },
 ];
 const E = (name, cat, eq, lvl, sets, reps, tip) => ({ name, cat, eq, lvl, sets, reps, tip:tip||"" });
 
 const EXERCISES = [
+  // ───────── HOME WORKOUT (bodyweight + dumbbells + core) ─────────
+  // Beginner
+  E("Knee Push-ups","home","bodyweight","beginner",3,"10-15","Knees down, straight line from knees to head."),
+  E("Incline Push-ups","home","bodyweight","beginner",3,"10-15","Hands on a sofa or table — easier than floor."),
+  E("Standard Push-ups","home","bodyweight","beginner",3,"AMRAP","Full lockout, body in one line."),
+  E("Bodyweight Squats","home","bodyweight","beginner",3,"15-20","Sit back into the heels, chest up."),
+  E("Glute Bridge (Floor)","home","bodyweight","beginner",3,"15-20","Squeeze glutes hard at the top."),
+  E("Dumbbell Goblet Squat","home","dumbbell","beginner",3,"12-15","Hold one dumbbell at the chest, sit deep."),
+  E("Dumbbell Floor Press","home","dumbbell","beginner",3,"10-12","Lie on the floor, press dumbbells — chest builder, no bench."),
+  E("Dumbbell Row (Single Arm)","home","dumbbell","beginner",3,"10-12","Hand on a chair, pull the dumbbell to the hip."),
+  E("Dumbbell Shoulder Press (Seated)","home","dumbbell","beginner",3,"10-12","Sit tall on a chair, press overhead."),
+  E("Dumbbell Curl (Home)","home","dumbbell","beginner",3,"12","Slow up, slow down, no swinging."),
+  E("Wall Sit","home","bodyweight","beginner",3,"30-45s","Thighs parallel, back flat on the wall."),
+  E("Floor Plank","home","bodyweight","beginner",3,"30-60s","Brace abs and glutes, no sagging hips."),
+  E("Dead Bug (Home)","home","bodyweight","beginner",3,"12","Lower back glued to the floor throughout."),
+  E("Standing Calf Raise (Home)","home","bodyweight","beginner",3,"20","Hold a wall for balance, full stretch and squeeze."),
+  // Intermediate
+  E("Dumbbell Lunge","home","dumbbell","intermediate",3,"10/leg","One dumbbell each hand, long controlled steps."),
+  E("Dumbbell Romanian Deadlift","home","dumbbell","intermediate",4,"10-12","Hinge at the hips, feel the hamstring stretch."),
+  E("Dumbbell Bulgarian Split Squat","home","dumbbell","intermediate",3,"10/leg","Rear foot on a chair, stay upright."),
+  E("Pike Push-ups","home","bodyweight","intermediate",3,"8-12","Hips high, press the head toward the floor — shoulders."),
+  E("Dumbbell Renegade Row","home","dumbbell","intermediate",3,"8/side","Plank on dumbbells, row one while bracing the core."),
+  E("Dumbbell Thruster (Home)","home","dumbbell","intermediate",3,"10-12","Squat into an overhead press — full-body burner."),
+  E("Hollow Body Hold","home","bodyweight","intermediate",3,"20-30s","Lower back pressed down, arms and legs extended."),
+  E("Side Plank","home","bodyweight","intermediate",3,"30s/side","Stack the hips, push the bottom hip up."),
+  E("Reverse Lunge","home","bodyweight","intermediate",3,"12/leg","Step back, drop the knee, drive through the front heel."),
+  E("Dumbbell Lateral Raise (Home)","home","dumbbell","intermediate",3,"15","Light weight, lead with the elbows."),
+  // Advanced
+  E("Archer Push-ups","home","bodyweight","advanced",3,"6-8/side","Shift weight to one arm, the other stays straight."),
+  E("Pseudo Planche Push-ups","home","bodyweight","advanced",3,"6-10","Hands by the hips, lean forward — heavy chest/shoulder load."),
+  E("Pistol Squat","home","bodyweight","advanced",3,"5-8/leg","Single-leg squat to full depth, control the descent."),
+  E("Single-Leg RDL (Dumbbell)","home","dumbbell","advanced",3,"8/leg","Balance on one leg, hinge with a dumbbell — hamstrings & stability."),
+  E("Decline Push-ups","home","bodyweight","advanced",3,"AMRAP","Feet elevated on a chair — emphasises upper chest."),
+  E("Dumbbell Devil's Press","home","dumbbell","advanced",4,"8-10","Burpee into a snatch overhead — brutal conditioning."),
+  E("Nordic Curl (Home)","home","bodyweight","advanced",3,"5-8","Anchor the feet, lower slowly — elite hamstring strength."),
+  E("Hanging/Door-frame Knee Raise","home","bodyweight","advanced",3,"10-15","Use a sturdy bar, curl the knees up without swinging."),
+
   // ───────── CHEST ─────────
   E("Barbell Bench Press","chest","barbell","intermediate",4,"6-10","Retract shoulder blades, control the bar to mid-chest."),
   E("Incline Barbell Press","chest","barbell","intermediate",4,"6-10","30-45° bench targets upper chest."),
@@ -225,42 +263,167 @@ const DAY_DEFS = [
 ];
 
 // Default PPL plan (ported from original) — used on first launch / reset to template
+// ── Workout builders: each returns a fresh day object ──
+const _pick = (name)=>{ const e=EXERCISES.find(x=>x.name===name); return e?{...e}:null; };
+const _ex = (name, sets, reps)=>{ const e=_pick(name); if(!e) return null; return {id:uid(),name:e.name,cat:e.cat,sets:sets||e.sets,reps:reps||e.reps,tip:e.tip}; };
+const _clean = arr=>arr.filter(Boolean);
+
+const WORKOUT_BUILDERS = {
+  PUSH: ()=>({ title:"PUSH", cats:["chest","shoulders","triceps"], items:_clean([
+    _ex("Incline Dumbbell Press",4,"8-10"), _ex("Machine Chest Press",3,"10-12"),
+    _ex("Cable Fly (Low to High)",3,"12-15"), _ex("Lateral Raises",4,"15"),
+    _ex("Face Pulls",4,"15"), _ex("Rope Pushdown",4,"12"), _ex("Overhead Rope Extension",3,"12-15"),
+  ])}),
+  PULL: ()=>({ title:"PULL", cats:["back","biceps"], items:_clean([
+    _ex("Chest Supported Row",4,"8-10"), _ex("Neutral Grip Pulldown",4,"10-12"),
+    _ex("Seated Cable Row",3,"12"), _ex("Straight Arm Pulldown",3,"15"),
+    _ex("Reverse Pec Deck",4,"15"), _ex("Incline Dumbbell Curl",3,"12"), _ex("Hammer Curl",3,"12"),
+  ])}),
+  LEGS: ()=>({ title:"LEGS", cats:["quads","hamstrings","calves","core"], items:_clean([
+    _ex("Leg Press",4,"10"), _ex("Bulgarian Split Squat",3,"10/leg"),
+    _ex("Romanian Deadlift",4,"10"), _ex("Leg Extension",3,"15"),
+    _ex("Seated Hamstring Curl",3,"15"), _ex("Standing Calf Raise",4,"15"),
+    _ex("Plank",3,"60s"), _ex("Dead Bug",3,"12"),
+  ])}),
+  UPPER: ()=>({ title:"UPPER PUMP", cats:["back","shoulders","core"], items:_clean([
+    _ex("Seated Cable Row",4,"15"), _ex("Reverse Pec Deck",4,"15"),
+    _ex("Face Pulls",4,"15"), _ex("Lateral Raises",4,"15"),
+    _ex("Rear Delt Fly (Dumbbell)",4,"15"), _ex("Bird Dog",3,"12"), _ex("Wall Angels",3,"12"),
+  ])}),
+  SWIM: ()=>({ title:"SWIM", cats:["swimming"], items:_clean([
+    _ex("Easy Recovery Swim"), _ex("Backstroke"),
+  ])}),
+  REST: ()=>({ title:"REST", cats:["mobility"], items:_clean([
+    _ex("Foam Rolling"), _ex("Cat-Cow Stretch"), _ex("Hip Flexor Stretch"),
+  ])}),
+};
+
+// The repeating training sequence (non-rest workouts), cycled across training days.
+const TRAINING_SEQUENCE = ["PUSH","PULL","LEGS","UPPER","SWIM"];
+const WORKOUT_TYPES = ["PUSH","PULL","LEGS","UPPER","SWIM","REST"];
+
+// Lay the week. `pins` is a map dayKey -> workout type ("PUSH".."SWIM","REST").
+// Pinned days are placed exactly as chosen; unpinned days auto-fill with the
+// training sequence (flowing around pins), and any day not pinned and not
+// reached by auto-fill defaults to REST only if it has no pin.
+// `auto` is the set of days that should auto-train (not pinned, not auto-rest).
+// Simpler model: every day is either pinned to a type, or auto. Auto days get
+// the next sequence workout; pinned REST days are just rest.
+function buildWeek(pins, fromKey, basePlan){
+  pins = pins||{};
+  const keys = DAY_DEFS.map(d=>d.key);
+  const fromIdx = fromKey ? keys.indexOf(fromKey) : 0;
+  // continue the sequence based on training days (auto or pinned-non-rest) before fromIdx
+  let seqIdx = 0;
+  for(let i=0;i<fromIdx;i++){ const t=pins[keys[i]]; if(t&&t!=="REST") seqIdx++; else if(!t){ const bt=(basePlan&&basePlan[keys[i]]?.title||"").toUpperCase(); if(bt&&bt!=="REST") seqIdx++; } }
+  const out = basePlan ? {...basePlan} : {};
+  for(let i=fromIdx;i<keys.length;i++){
+    const k=keys[i]; const pin=pins[k];
+    if(pin){ out[k]=WORKOUT_BUILDERS[pin](); if(pin!=="REST") seqIdx++; }
+    else { const type=TRAINING_SEQUENCE[seqIdx % TRAINING_SEQUENCE.length]; out[k]=WORKOUT_BUILDERS[type](); seqIdx++; }
+  }
+  return out;
+}
+
+// Derive which days are currently REST from a plan (title === "REST").
+function restDaysOf(plan){ return DAY_DEFS.filter(d=>(plan[d.key]?.title||"").toUpperCase()==="REST").map(d=>d.key); }
+// Map a day title back to a workout type key.
+function typeOfTitle(t){ t=(t||"").toUpperCase(); if(t.indexOf("UPPER")>=0) return "UPPER"; if(["PUSH","PULL","LEGS","SWIM","REST"].includes(t)) return t; return null; }
+
 function defaultPlan(){
+  // Standard: PUSH, PULL, REST, LEGS, UPPER, SWIM, REST
+  return {
+    mon: WORKOUT_BUILDERS.PUSH(),
+    tue: WORKOUT_BUILDERS.PULL(),
+    wed: WORKOUT_BUILDERS.REST(),
+    thu: WORKOUT_BUILDERS.LEGS(),
+    fri: WORKOUT_BUILDERS.UPPER(),
+    sat: WORKOUT_BUILDERS.SWIM(),
+    sun: WORKOUT_BUILDERS.REST(),
+  };
+}
+
+function homePlan(mode){
   const pick = (name)=>{ const e=EXERCISES.find(x=>x.name===name); return e?{...e}:null; };
   const ex = (name, sets, reps)=>{ const e=pick(name); if(!e) return null; return {id:uid(),name:e.name,cat:e.cat,sets:sets||e.sets,reps:reps||e.reps,tip:e.tip}; };
   const clean = arr=>arr.filter(Boolean);
+  const adv = mode==="advanced";
   return {
-    mon:{ title:"PUSH", cats:["chest","shoulders","triceps"], items:clean([
-      ex("Incline Dumbbell Press",4,"8-10"), ex("Machine Chest Press",3,"10-12"),
-      ex("Cable Fly (Low to High)",3,"12-15"), ex("Lateral Raises",4,"15"),
-      ex("Face Pulls",4,"15"), ex("Rope Pushdown",4,"12"), ex("Overhead Rope Extension",3,"12-15"),
+    // Upper-body push/pull
+    mon:{ title:"HOME UPPER", cats:["home"], items:clean([
+      adv?ex("Decline Push-ups",4,"AMRAP"):ex("Standard Push-ups",3,"AMRAP"),
+      ex("Dumbbell Floor Press",3,"10-12"),
+      ex("Dumbbell Row (Single Arm)",3,"10-12"),
+      ex("Dumbbell Shoulder Press (Seated)",3,"10-12"),
+      adv?ex("Pike Push-ups",3,"8-12"):ex("Dumbbell Lateral Raise (Home)",3,"15"),
+      ex("Dumbbell Curl (Home)",3,"12"),
     ])},
-    tue:{ title:"PULL", cats:["back","biceps"], items:clean([
-      ex("Chest Supported Row",4,"8-10"), ex("Neutral Grip Pulldown",4,"10-12"),
-      ex("Seated Cable Row",3,"12"), ex("Straight Arm Pulldown",3,"15"),
-      ex("Reverse Pec Deck",4,"15"), ex("Incline Dumbbell Curl",3,"12"), ex("Hammer Curl",3,"12"),
+    // Lower-body
+    tue:{ title:"HOME LOWER", cats:["home"], items:clean([
+      adv?ex("Pistol Squat",3,"5-8/leg"):ex("Dumbbell Goblet Squat",3,"12-15"),
+      ex("Dumbbell Lunge",3,"10/leg"),
+      adv?ex("Single-Leg RDL (Dumbbell)",3,"8/leg"):ex("Dumbbell Romanian Deadlift",4,"10-12"),
+      ex("Glute Bridge (Floor)",3,"15-20"),
+      ex("Standing Calf Raise (Home)",3,"20"),
     ])},
     wed:{ title:"REST", cats:["mobility"], items:clean([
-      ex("Foam Rolling"), ex("Cat-Cow Stretch"), ex("Wall Angels"), ex("Chin Tucks"),
+      ex("Foam Rolling"), ex("Cat-Cow Stretch"), ex("World's Greatest Stretch"),
     ])},
-    thu:{ title:"LEGS", cats:["quads","hamstrings","calves","core"], items:clean([
-      ex("Leg Press",4,"10"), ex("Bulgarian Split Squat",3,"10/leg"),
-      ex("Romanian Deadlift",4,"10"), ex("Leg Extension",3,"15"),
-      ex("Seated Hamstring Curl",3,"15"), ex("Standing Calf Raise",4,"15"),
-      ex("Plank",3,"60s"), ex("Dead Bug",3,"12"),
+    // Full body
+    thu:{ title:"HOME FULL BODY", cats:["home"], items:clean([
+      adv?ex("Dumbbell Devil's Press",4,"8-10"):ex("Dumbbell Thruster (Home)",3,"10-12"),
+      adv?ex("Archer Push-ups",3,"6-8/side"):ex("Incline Push-ups",3,"10-15"),
+      ex("Dumbbell Renegade Row",3,"8/side"),
+      ex("Reverse Lunge",3,"12/leg"),
+      ex("Wall Sit",3,"30-45s"),
     ])},
-    fri:{ title:"UPPER PUMP", cats:["back","shoulders","core"], items:clean([
-      ex("Seated Cable Row",4,"15"), ex("Reverse Pec Deck",4,"15"),
-      ex("Face Pulls",4,"15"), ex("Lateral Raises",4,"15"),
-      ex("Rear Delt Fly (Dumbbell)",4,"15"), ex("Bird Dog",3,"12"), ex("Wall Angels",3,"12"),
+    // Core
+    fri:{ title:"HOME CORE", cats:["home","core"], items:clean([
+      adv?ex("Hollow Body Hold",3,"20-30s"):ex("Floor Plank",3,"30-60s"),
+      ex("Side Plank",3,"30s/side"),
+      ex("Dead Bug (Home)",3,"12"),
+      adv?ex("Hanging/Door-frame Knee Raise",3,"10-15"):ex("Bicycle Crunch",3,"20"),
+      ex("Mountain Climbers",3,"30s"),
     ])},
-    sat:{ title:"SWIM", cats:["swimming"], items:clean([
-      ex("Easy Recovery Swim"), ex("Backstroke"),
+    sat:{ title:"REST", cats:["mobility"], items:clean([
+      ex("Foam Rolling"), ex("Hip Flexor Stretch"),
     ])},
     sun:{ title:"REST", cats:["mobility"], items:clean([
-      ex("Foam Rolling"), ex("Hip Flexor Stretch"), ex("Couch Stretch"),
+      ex("Couch Stretch"), ex("Thoracic Rotations"),
     ])},
   };
+}
+
+// Movement-pattern pools for home workouts. Each day pulls one from each
+// pattern and rotates within the pool so consecutive days differ while
+// every session stays balanced (push / pull / squat / hinge / accessory / core).
+const HOME_POOLS = {
+  beginner: {
+    push:  [["Standard Push-ups",3,"AMRAP"],["Incline Push-ups",3,"12-15"],["Dumbbell Floor Press",3,"10-12"],["Knee Push-ups",3,"12-15"]],
+    pull:  [["Dumbbell Row (Single Arm)",3,"10-12"],["Dumbbell Renegade Row",3,"8/side"]],
+    squat: [["Dumbbell Goblet Squat",3,"12-15"],["Bodyweight Squats",3,"15-20"],["Wall Sit",3,"40-50s"],["Reverse Lunge",3,"12/leg"]],
+    hinge: [["Dumbbell Romanian Deadlift",3,"10-12"],["Glute Bridge (Floor)",3,"15-20"],["Dumbbell Lunge",3,"10/leg"]],
+    accessory: [["Dumbbell Shoulder Press (Seated)",3,"10-12"],["Dumbbell Lateral Raise (Home)",3,"15"],["Dumbbell Curl (Home)",3,"12"],["Standing Calf Raise (Home)",3,"20"]],
+    core:  [["Floor Plank",3,"40-60s"],["Dead Bug (Home)",3,"12"],["Side Plank",3,"30s/side"],["Bicycle Crunch",3,"20"]],
+  },
+  advanced: {
+    push:  [["Decline Push-ups",4,"AMRAP"],["Archer Push-ups",3,"6-8/side"],["Pseudo Planche Push-ups",3,"6-10"],["Pike Push-ups",4,"8-12"]],
+    pull:  [["Dumbbell Renegade Row",4,"8/side"],["Dumbbell Row (Single Arm)",4,"10-12"]],
+    squat: [["Pistol Squat",3,"5-8/leg"],["Dumbbell Bulgarian Split Squat",3,"10/leg"],["Reverse Lunge",4,"12/leg"]],
+    hinge: [["Single-Leg RDL (Dumbbell)",3,"8/leg"],["Nordic Curl (Home)",3,"5-8"],["Dumbbell Romanian Deadlift",4,"10-12"]],
+    accessory: [["Dumbbell Thruster (Home)",3,"10-12"],["Dumbbell Devil's Press",4,"8-10"],["Dumbbell Shoulder Press (Seated)",4,"10-12"]],
+    core:  [["Hollow Body Hold",3,"20-30s"],["Hanging/Door-frame Knee Raise",3,"10-15"],["Side Plank",3,"40s/side"],["Ab Wheel Rollout",3,"8-12"]],
+  },
+};
+const HOME_ORDER = ["push","pull","squat","hinge","accessory","core"];
+
+// rot = rotation index; advances each home day so back-to-back days differ.
+function homeDay(mode, rot){
+  rot = rot||0;
+  const pools = HOME_POOLS[mode==="advanced"?"advanced":"beginner"];
+  const ex = (spec)=>{ const e=EXERCISES.find(x=>x.name===spec[0]); if(!e) return null; return {id:uid(),name:e.name,cat:e.cat,sets:spec[1]||e.sets,reps:spec[2]||e.reps,tip:e.tip}; };
+  const items = HOME_ORDER.map((pat,i)=>{ const pool=pools[pat]; if(!pool||!pool.length) return null; const choice=pool[(rot+i)%pool.length]; return ex(choice); }).filter(Boolean);
+  return { title:"HOME DAY", cats:["home"], items };
 }
 
 // ═══════════════ HELPERS ═══════════════
@@ -272,7 +435,7 @@ function isoWeek(d){ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.g
 
 const SCHEMA = 2;
 const LS = {
-  plan:"gc_plan", log:"gc_log", history:"gc_history", mode:"gc_mode", schema:"gc_schema",
+  plan:"gc_plan", log:"gc_log", history:"gc_history", mode:"gc_mode", schema:"gc_schema", swap:"gc_swap", homeRot:"gc_homerot",
 };
 function load(key, fb){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fb; }catch{ return fb; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch{} }
@@ -419,6 +582,59 @@ function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
   );
 }
 
+// ═══════════════ WEEK SETUP (per-day planner) ═══════════════
+const WEEK_TITLE={PUSH:"PUSH",PULL:"PULL",LEGS:"LEGS",UPPER:"UPPER PUMP",SWIM:"SWIM",REST:"REST"};
+const CYCLE=["AUTO","PUSH","PULL","LEGS","UPPER","SWIM","REST"];
+function WeekSetup({plan, todayKey, onApply, onClose, toast}){
+  // pins: dayKey -> workout type. Absent = AUTO (sequence fills it).
+  const [pins,setPins]=useState({});
+  const [scope,setScope]=useState("forward"); // forward = today onward; full = whole week
+  const keys=DAY_DEFS.map(d=>d.key);
+  const todayIdx=keys.indexOf(todayKey);
+  const fromKey = scope==="full" ? keys[0] : todayKey;
+  const cycle=k=>setPins(p=>{ const cur=p[k]?CYCLE.indexOf(p[k]):0; const next=CYCLE[(cur+1)%CYCLE.length]; const n={...p}; if(next==="AUTO") delete n[k]; else n[k]=next; return n; });
+  // live preview
+  const preview = buildWeek(pins, fromKey, scope==="full"?null:plan);
+  const trainCount = DAY_DEFS.filter(d=>typeOfTitle(preview[d.key]?.title)!=="REST").length;
+  const apply=()=>{ onApply(pins,scope); onClose(); };
+  const colorFor=t=>({PUSH:"#ff6b6b",PULL:"#4dabf7",LEGS:"#69db7c","UPPER PUMP":"#ffa94d",SWIM:"#4dd0ff",REST:"#6b6b7a"})[(t||"").toUpperCase()]||"#e8ff47";
+  return h("div",{onClick:onClose,style:{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}},
+    h("div",{onClick:e=>e.stopPropagation(),className:"toast",style:{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:"14px 14px 0 0",width:"100%",maxWidth:640,maxHeight:"92vh",overflowY:"auto",padding:"20px 18px calc(24px + env(safe-area-inset-bottom))"}},
+      h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+        h("span",{style:{fontWeight:800,fontSize:"1.05rem",textTransform:"uppercase"}},"Plan the week"),
+        h("button",{onClick:onClose,style:{background:"none",border:"none",color:"var(--muted)",fontSize:"1.3rem",cursor:"pointer"}},"✕")),
+      h("p",{style:{fontSize:"0.72rem",color:"var(--muted)",lineHeight:1.6,marginBottom:14}},"Days set to AUTO fill with your rotation (Push → Pull → Legs → Upper → Swim). Tap any day to override it — pick any workout you want, repeats allowed. Tap again to cycle through the options."),
+      // scope
+      h("div",{style:{display:"flex",border:"1px solid var(--border)",borderRadius:8,overflow:"hidden",marginBottom:8}},
+        ...[["forward","From today onward"],["full","Rebuild whole week"]].map(([k,l])=>h("button",{key:k,onClick:()=>setScope(k),style:{flex:1,padding:"9px",background:scope===k?"var(--surface2)":"transparent",border:"none",borderBottom:"2px solid "+(scope===k?"var(--lime)":"transparent"),color:scope===k?"var(--lime)":"var(--muted)",fontWeight:700,fontSize:"0.66rem",textTransform:"uppercase",letterSpacing:"0.04em",cursor:"pointer"}},l))),
+      h("p",{style:{fontSize:"0.64rem",color:"var(--muted)",lineHeight:1.5,marginBottom:14}},scope==="forward"?"Days before today stay exactly as they are — only today and later change.":"⚠ Rebuilds all 7 days from Monday, replacing every day (including ones you may have already done this week)."),
+      h("div",{style:{display:"flex",alignItems:"center",gap:8,fontSize:"0.66rem",color:"var(--muted)",marginBottom:12}},
+        h("span",{style:{color:"var(--green)",fontWeight:700}},trainCount+" training days"),
+        h("span",null,"·"),
+        h("span",null,(7-trainCount)+" rest")),
+      // per-day rows (tappable)
+      h("div",{style:{display:"flex",flexDirection:"column",gap:5,marginBottom:18}},
+        ...DAY_DEFS.map((d,i)=>{ const title=preview[d.key]?.title||"—"; const tType=typeOfTitle(title); const frozen=scope==="forward"&&i<todayIdx; const isToday=d.key===todayKey; const pinned=!!pins[d.key];
+          const prevTitle = i>0 ? (preview[keys[i-1]]?.title||"") : "";
+          const sameAsYesterday = tType!=="REST" && title===prevTitle && !(scope==="forward"&&i<=todayIdx);
+          return h("div",{key:d.key,onClick:frozen?null:()=>cycle(d.key),style:{display:"flex",alignItems:"center",gap:10,padding:"10px 11px",borderRadius:7,background:frozen?"#0d0d10":"var(--surface2)",border:"1px solid "+(isToday?"rgba(232,255,71,0.4)":pinned?"rgba(71,200,255,0.4)":"var(--border)"),opacity:frozen?0.5:1,cursor:frozen?"default":"pointer"}},
+            h("span",{style:{fontSize:"0.62rem",fontWeight:700,color:"var(--muted)",width:32}},d.label),
+            h("span",{style:{width:8,height:8,borderRadius:"50%",background:colorFor(title),flexShrink:0}}),
+            h("div",{style:{flex:1,minWidth:0}},
+              h("div",{style:{display:"flex",alignItems:"center",gap:7}},
+                h("span",{style:{fontSize:"0.82rem",fontWeight:700,color:tType==="REST"?"var(--muted)":"var(--text)"}},title),
+                pinned&&h("span",{style:{fontSize:"0.5rem",color:"var(--cyan)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",border:"1px solid rgba(71,200,255,0.35)",borderRadius:10,padding:"1px 6px"}},"Pinned"),
+                !pinned&&!frozen&&h("span",{style:{fontSize:"0.5rem",color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}},"Auto")),
+              sameAsYesterday&&h("div",{style:{fontSize:"0.58rem",color:"#ffd43b",marginTop:2}},"⚠ Same as the day before")),
+            isToday&&h("span",{style:{fontSize:"0.52rem",color:"var(--lime)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0}},"Today"),
+            frozen&&h("span",{style:{fontSize:"0.52rem",color:"var(--dim)",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0}},"kept"),
+            !frozen&&h("span",{style:{fontSize:"0.7rem",color:"var(--muted)",flexShrink:0}},"⟳")); })),
+      // quick reset of overrides
+      Object.keys(pins).length>0&&h("button",{onClick:()=>setPins({}),style:{width:"100%",marginBottom:10,padding:"9px",background:"transparent",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.62rem",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"↺ Clear all overrides (back to auto)"),
+      h("button",{onClick:apply,style:{width:"100%",padding:"14px",background:"var(--lime)",border:"none",borderRadius:8,color:"var(--bg)",fontWeight:800,fontSize:"0.88rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"Apply week"))
+  );
+}
+
 // ═══════════════ BACKUP / DATA ═══════════════
 function DataModal({plan, log, history, onImport, onClose, toast}){
   const [tab,setTab]=useState("export");
@@ -514,13 +730,18 @@ function App(){
   const [showTimer,setShowTimer]=useState(false);
   const [editDay,setEditDay]=useState(null);
   const [showData,setShowData]=useState(false);
+  const [showWeek,setShowWeek]=useState(false);
   const [confirm,setConfirm]=useState(null);
   const [toastState,setToastState]=useState(null);
+  const [swap,setSwap]=useState(()=>load(LS.swap,{})); // dayKey -> stashed original day
+  const [homeRot,setHomeRot]=useState(()=>load(LS.homeRot,0)); // advances each home day for variety
   const toast=(msg,action,onAction)=>setToastState({msg,action,onAction,k:uid()});
 
   useEffect(()=>{ save(LS.plan,plan); },[plan]);
   useEffect(()=>{ save(LS.log,log); },[log]);
   useEffect(()=>{ save(LS.history,history); },[history]);
+  useEffect(()=>{ save(LS.swap,swap); },[swap]);
+  useEffect(()=>{ save(LS.homeRot,homeRot); },[homeRot]);
   useEffect(()=>{ if(mode){save(LS.mode,mode); save(LS.schema,SCHEMA);} },[mode]);
 
   // First-launch mode selection
@@ -552,10 +773,51 @@ function App(){
   };
   const lastLog=name=>{ for(let i=history.length-1;i>=0;i--){ const ex=(history[i].exercises||[]).find(e=>e.name===name); if(ex){ const mx=Math.max(0,...ex.sets.map(s=>parseFloat(s.weight)||0)); if(mx>0) return mx; } } return null; };
 
+  const isSwapped=!!swap[activeDay];
+  const clearDayLog=dk=>setLog(l=>{ const n={...l}; (plan[dk].items||[]).forEach(it=>delete n[it.id]); return n; });
+  const swapToHome=()=>{
+    clearDayLog(activeDay);
+    const rot=homeRot;
+    setSwap(s=>({...s,[activeDay]:plan[activeDay]}));   // stash original
+    setPlan(p=>({...p,[activeDay]:homeDay(mode,rot)}));
+    setHomeRot(r=>r+1);                                  // next home day differs
+    setConfirm(null);
+    toast("Switched to a home day 🏠");
+  };
+  const reshuffleHome=()=>{
+    clearDayLog(activeDay);
+    const rot=homeRot;
+    setPlan(p=>({...p,[activeDay]:homeDay(mode,rot)}));
+    setHomeRot(r=>r+1);
+    toast("Home workout reshuffled 🔀");
+  };
+  const restoreDay=()=>{
+    clearDayLog(activeDay);
+    const original=swap[activeDay];
+    setPlan(p=>({...p,[activeDay]:original}));
+    setSwap(s=>{ const n={...s}; delete n[activeDay]; return n; });
+    setConfirm(null);
+    toast("Restored your "+(original.title||"original")+" day");
+  };
+  const applyWeek=(pins,scope)=>{
+    const keys=DAY_DEFS.map(d=>d.key);
+    const fromKey = scope==="full" ? keys[0] : getTodayKey();
+    const fromIdx = keys.indexOf(fromKey);
+    const newPlan = buildWeek(pins, fromKey, scope==="full"?null:plan);
+    // clear in-progress logs for days that get rewritten (today-forward or all)
+    setLog(l=>{ const n={...l}; keys.forEach((k,i)=>{ if(i>=fromIdx) (plan[k].items||[]).forEach(it=>delete n[it.id]); }); return n; });
+    // any swapped-home stash on a rewritten day is now stale → drop it
+    setSwap(s=>{ const n={...s}; keys.forEach((k,i)=>{ if(i>=fromIdx) delete n[k]; }); return n; });
+    setPlan(newPlan);
+    const tc=DAY_DEFS.filter(d=>typeOfTitle(newPlan[d.key]?.title)!=="REST").length;
+    toast("Week updated — "+tc+" training day"+(tc!==1?"s":""));
+  };
+
   return h("div",{style:{background:"var(--bg)",minHeight:"100vh",color:"var(--text)",maxWidth:640,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom)"}},
     showTimer&&h(RestTimer,{onClose:()=>setShowTimer(false)}),
     editDay&&h(DayEditor,{dayKey:editDay,plan,setPlan,mode,toast,onClose:()=>setEditDay(null)}),
-    showData&&h(DataModal,{plan,log,history,toast,onClose:()=>setShowData(false),onImport:obj=>{ setPlan(obj.plan); setLog(obj.log||{}); setHistory(obj.history||[]); }}),
+    showData&&h(DataModal,{plan,log,history,toast,onClose:()=>setShowData(false),onImport:obj=>{ setPlan(obj.plan); setLog(obj.log||{}); setHistory(obj.history||[]); setSwap(obj.swap||{}); }}),
+    showWeek&&h(WeekSetup,{plan,todayKey:getTodayKey(),toast,onClose:()=>setShowWeek(false),onApply:applyWeek}),
     toastState&&h(Toast,{key:toastState.k,msg:toastState.msg,action:toastState.action,onAction:()=>{toastState.onAction&&toastState.onAction(); setToastState(null);},onDone:()=>setToastState(null)}),
 
     // confirm modals
@@ -576,6 +838,7 @@ function App(){
           h("span",null,"Build · Track · Progress"),
           h("button",{onClick:()=>setMode(m=>{const n=m==="beginner"?"advanced":"beginner"; toast(n==="beginner"?"🌱 Beginner mode — tips on, advanced lifts hidden":"🔥 Advanced mode — full library unlocked"); return n;}),style:{background:mode==="beginner"?"rgba(45,205,122,0.14)":"rgba(255,107,53,0.14)",border:"1px solid "+(mode==="beginner"?"rgba(45,205,122,0.4)":"rgba(255,107,53,0.4)"),color:mode==="beginner"?"var(--green)":"var(--orange)",borderRadius:20,padding:"2px 9px",fontSize:"0.54rem",fontWeight:700,letterSpacing:"0.06em",cursor:"pointer",textTransform:"uppercase"}},mode))),
       h("div",{style:{display:"flex",gap:6,marginTop:4}},
+        h("button",{onClick:()=>setShowWeek(true),title:"Plan week",style:{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"8px 10px",cursor:"pointer",color:"var(--green)",fontSize:"0.95rem",lineHeight:1}},"🗓"),
         h("button",{onClick:()=>setShowData(true),title:"Backup",style:{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"8px 10px",cursor:"pointer",color:"var(--lime)",fontSize:"0.95rem",lineHeight:1}},"☁"),
         h("button",{onClick:()=>setShowTimer(true),title:"Rest Timer",style:{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"8px 10px",cursor:"pointer",color:"var(--cyan)",fontSize:"0.95rem",lineHeight:1}},"⏱"))),
 
@@ -620,7 +883,23 @@ function App(){
               h("span",{style:{fontSize:"0.44rem",color:"var(--muted)",letterSpacing:"0.04em",textTransform:"uppercase"}},doneCount+"/"+items.length)))),
 
         // edit button
-        h("button",{onClick:()=>setEditDay(activeDay),style:{width:"100%",marginBottom:14,padding:"11px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,color:"var(--cyan)",fontWeight:700,fontSize:"0.72rem",letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"⚙ Edit "+(day.title||"day")+" — pick categories & exercises"),
+        // per-day home swap
+        h("div",{style:{display:"flex",gap:8,marginBottom:8}},
+          h("button",{onClick:()=>{
+            if(isSwapped){
+              const hasLog=(items.some(it=>(log[it.id]?.sets?.length||0)>0));
+              setConfirm({icon:"↩️",title:"Restore original day?",body:"This brings back your "+(swap[activeDay].title||"original")+" exercises for "+DAY_DEFS.find(d=>d.key===activeDay).full+"."+(hasLog?" Unsaved sets logged today will be cleared (history is safe).":""),yes:"Restore",onYes:restoreDay});
+            } else {
+              const hasLog=(items.some(it=>(log[it.id]?.sets?.length||0)>0));
+              setConfirm({icon:"🏠",title:"Switch to a home day?",body:"Swaps just "+DAY_DEFS.find(d=>d.key===activeDay).full+" to a full-body home session ("+mode+" level). Your other days and your history are untouched — you can restore this day anytime."+(hasLog?" Sets logged today will be cleared first.":""),yes:"Switch to home",onYes:swapToHome});
+            }
+          },style:{flex:1,padding:"11px",background:isSwapped?"rgba(255,212,59,0.1)":"var(--surface)",border:"1px solid "+(isSwapped?"rgba(255,212,59,0.4)":"var(--border)"),borderRadius:7,color:isSwapped?"#ffd43b":"var(--lime)",fontWeight:700,fontSize:"0.72rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},isSwapped?"↩️ Restore "+(swap[activeDay].title||"original")+" day":"🏠 Switch this day to home"),
+          isSwapped&&(day.cats||[]).includes("home")&&h("button",{onClick:()=>{
+            const hasLog=(items.some(it=>(log[it.id]?.sets?.length||0)>0));
+            if(hasLog) setConfirm({icon:"🔀",title:"Reshuffle home workout?",body:"Picks a fresh set of home exercises for today. Sets logged today will be cleared (history is safe).",yes:"Reshuffle",onYes:()=>{reshuffleHome(); setConfirm(null);}});
+            else reshuffleHome();
+          },title:"New exercises",style:{flexShrink:0,padding:"11px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,color:"var(--cyan)",fontWeight:700,fontSize:"0.85rem",cursor:"pointer"}},"🔀")),
+
 
         // empty
         items.length===0&&h("div",{style:{background:"var(--surface)",border:"1px dashed var(--border)",borderRadius:8,padding:"34px 20px",textAlign:"center"}},
@@ -657,8 +936,10 @@ function App(){
         // finish workout
         items.length>0&&h("button",{onClick:()=>setConfirm({icon:"🏁",title:"Finish workout?",body:"Logged sets will be saved to your history, and today's checkboxes will reset for next time.",yes:"Save to history",onYes:finishDay}),style:{width:"100%",marginTop:14,padding:"15px",background:doneCount>0?"var(--lime)":"var(--surface)",border:doneCount>0?"none":"1px solid var(--border)",borderRadius:8,color:doneCount>0?"var(--bg)":"var(--muted)",fontWeight:800,fontSize:"0.86rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"🏁 Finish & save workout"),
 
-        // reset to template
-        h("button",{onClick:()=>setConfirm({icon:"📋",title:"Load default PPL plan?",body:"This replaces your current weekly plan with the built-in Push/Pull/Legs template. Your history stays untouched.",yes:"Load template",danger:true,onYes:()=>{setPlan(defaultPlan()); setConfirm(null); toast("Default PPL plan loaded");}}),style:{width:"100%",marginTop:8,padding:"10px",background:"transparent",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.64rem",fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}},"↺ Reset week to default PPL template")))
+        // templates
+        h("div",{style:{display:"flex",gap:8,marginTop:8}},
+          h("button",{onClick:()=>setConfirm({icon:"🏋️",title:"Load gym PPL plan?",body:"Replaces your weekly plan with the built-in Push/Pull/Legs gym template. Your history stays untouched.",yes:"Load gym plan",danger:true,onYes:()=>{setPlan(defaultPlan()); setConfirm(null); toast("Gym PPL plan loaded");}}),style:{flex:1,padding:"10px 8px",background:"transparent",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.62rem",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"🏋️ Gym PPL plan"),
+          h("button",{onClick:()=>setConfirm({icon:"🏠",title:"Load home plan?",body:"Replaces your weekly plan with a full-body home routine (bodyweight + dumbbells + core), matched to your "+mode+" level. Your history stays untouched.",yes:"Load home plan",danger:true,onYes:()=>{setPlan(homePlan(mode)); setConfirm(null); toast("Home plan loaded — "+mode+" level");}}),style:{flex:1,padding:"10px 8px",background:"transparent",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.62rem",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"🏠 Home plan"))))
   );
 }
 
