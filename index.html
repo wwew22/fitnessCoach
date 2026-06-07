@@ -316,6 +316,12 @@ const WORKOUT_BUILDERS = {
     _ex("Face Pulls",4,"15"), _ex("Lateral Raises",4,"15"),
     _ex("Rear Delt Fly (Dumbbell)",4,"15"), _ex("Bird Dog",3,"12"), _ex("Wall Angels",3,"12"),
   ])}),
+  ARMS: ()=>({ title:"ARMS", cats:["biceps","triceps","shoulders"], items:_clean([
+    _ex("Barbell Curl",4,"8-12"), _ex("Rope Pushdown",4,"12-15"),
+    _ex("Incline Dumbbell Curl",3,"10-12"), _ex("Overhead Rope Extension",3,"12-15"),
+    _ex("Hammer Curl",3,"12"), _ex("Close-Grip Bench Press",3,"8-10"),
+    _ex("Lateral Raises",4,"15"),
+  ])}),
   SWIM: ()=>({ title:"SWIM", cats:["swimming"], items:_clean([
     _ex("Easy Recovery Swim"), _ex("Backstroke"),
   ])}),
@@ -325,8 +331,8 @@ const WORKOUT_BUILDERS = {
 };
 
 // The repeating training sequence (non-rest workouts), cycled across training days.
-const TRAINING_SEQUENCE = ["PUSH","PULL","LEGS","UPPER","SWIM"];
-const WORKOUT_TYPES = ["PUSH","PULL","LEGS","UPPER","SWIM","REST"];
+const TRAINING_SEQUENCE = ["PUSH","PULL","LEGS","UPPER","ARMS"];
+const WORKOUT_TYPES = ["PUSH","PULL","LEGS","UPPER","ARMS","SWIM","REST"];
 
 // Lay the week. `pins` is a map dayKey -> workout type ("PUSH".."SWIM","REST").
 // Pinned days are placed exactly as chosen; unpinned days auto-fill with the
@@ -335,8 +341,9 @@ const WORKOUT_TYPES = ["PUSH","PULL","LEGS","UPPER","SWIM","REST"];
 // `auto` is the set of days that should auto-train (not pinned, not auto-rest).
 // Simpler model: every day is either pinned to a type, or auto. Auto days get
 // the next sequence workout; pinned REST days are just rest.
-function buildWeek(pins, fromKey, basePlan){
+function buildWeek(pins, fromKey, basePlan, seq){
   pins = pins||{};
+  seq = (seq&&seq.length)?seq:TRAINING_SEQUENCE;
   const keys = DAY_DEFS.map(d=>d.key);
   const fromIdx = fromKey ? keys.indexOf(fromKey) : 0;
   // continue the sequence based on training days (auto or pinned-non-rest) before fromIdx
@@ -346,7 +353,7 @@ function buildWeek(pins, fromKey, basePlan){
   for(let i=fromIdx;i<keys.length;i++){
     const k=keys[i]; const pin=pins[k];
     if(pin){ out[k]=WORKOUT_BUILDERS[pin](); if(pin!=="REST") seqIdx++; }
-    else { const type=TRAINING_SEQUENCE[seqIdx % TRAINING_SEQUENCE.length]; out[k]=WORKOUT_BUILDERS[type](); seqIdx++; }
+    else { const type=seq[seqIdx % seq.length]; out[k]=WORKOUT_BUILDERS[type](); seqIdx++; }
   }
   return out;
 }
@@ -354,7 +361,7 @@ function buildWeek(pins, fromKey, basePlan){
 // Derive which days are currently REST from a plan (title === "REST").
 function restDaysOf(plan){ return DAY_DEFS.filter(d=>(plan[d.key]?.title||"").toUpperCase()==="REST").map(d=>d.key); }
 // Map a day title back to a workout type key.
-function typeOfTitle(t){ t=(t||"").toUpperCase(); if(t.indexOf("UPPER")>=0) return "UPPER"; if(["PUSH","PULL","LEGS","SWIM","REST"].includes(t)) return t; return null; }
+function typeOfTitle(t){ t=(t||"").toUpperCase(); if(t.indexOf("UPPER")>=0) return "UPPER"; if(["PUSH","PULL","LEGS","ARMS","SWIM","REST"].includes(t)) return t; return null; }
 
 function defaultPlan(){
   // Standard: PUSH, PULL, REST, LEGS, UPPER, SWIM, REST
@@ -364,7 +371,7 @@ function defaultPlan(){
     wed: WORKOUT_BUILDERS.REST(),
     thu: WORKOUT_BUILDERS.LEGS(),
     fri: WORKOUT_BUILDERS.UPPER(),
-    sat: WORKOUT_BUILDERS.SWIM(),
+    sat: WORKOUT_BUILDERS.ARMS(),
     sun: WORKOUT_BUILDERS.REST(),
   };
 }
@@ -480,10 +487,22 @@ function getTodayKey(){ return ["sun","mon","tue","wed","thu","fri","sat"][new D
 function fmtDate(ts){ return new Date(ts).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
 function isoWeek(d){ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=dt.getUTCDay()||7; dt.setUTCDate(dt.getUTCDate()+4-day); const ys=new Date(Date.UTC(dt.getUTCFullYear(),0,1)); const wk=Math.ceil((((dt-ys)/86400000)+1)/7); return dt.getUTCFullYear()+"-W"+String(wk).padStart(2,"0"); }
+// Current ISO week in Europe/Bucharest (EEST) — week boundary is Monday 00:00 local.
+function eestWeek(now){
+  now = now||new Date();
+  // get Y/M/D as seen in Bucharest, then compute ISO week from that calendar date
+  let parts;
+  try{ const f=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Bucharest",year:"numeric",month:"2-digit",day:"2-digit"}); parts=f.format(now); }
+  catch{ parts=null; }
+  let y,m,dd;
+  if(parts){ const [Y,M,D]=parts.split("-").map(Number); y=Y; m=M-1; dd=D; }
+  else { y=now.getFullYear(); m=now.getMonth(); dd=now.getDate(); }
+  return isoWeek(new Date(y,m,dd));
+}
 
 const SCHEMA = 2;
 const LS = {
-  plan:"gc_plan", log:"gc_log", history:"gc_history", mode:"gc_mode", schema:"gc_schema", swap:"gc_swap", homeRot:"gc_homerot",
+  plan:"gc_plan", log:"gc_log", history:"gc_history", mode:"gc_mode", schema:"gc_schema", swap:"gc_swap", homeRot:"gc_homerot", done:"gc_done",
 };
 function load(key, fb){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fb; }catch{ return fb; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch{} }
@@ -660,8 +679,8 @@ function DayEditor({dayKey, plan, setPlan, mode, onClose, toast}){
 }
 
 // ═══════════════ WEEK SETUP (per-day planner) ═══════════════
-const WEEK_TITLE={PUSH:"PUSH",PULL:"PULL",LEGS:"LEGS",UPPER:"UPPER PUMP",SWIM:"SWIM",REST:"REST"};
-const CYCLE=["AUTO","PUSH","PULL","LEGS","UPPER","SWIM","REST"];
+const WEEK_TITLE={PUSH:"PUSH",PULL:"PULL",LEGS:"LEGS",UPPER:"UPPER PUMP",ARMS:"ARMS",SWIM:"SWIM",REST:"REST"};
+const CYCLE=["AUTO","PUSH","PULL","LEGS","UPPER","ARMS","SWIM","REST"];
 function WeekSetup({plan, todayKey, onApply, onClose, toast}){
   // pins: dayKey -> workout type. Absent = AUTO (sequence fills it).
   const [pins,setPins]=useState({});
@@ -674,7 +693,7 @@ function WeekSetup({plan, todayKey, onApply, onClose, toast}){
   const preview = buildWeek(pins, fromKey, scope==="full"?null:plan);
   const trainCount = DAY_DEFS.filter(d=>typeOfTitle(preview[d.key]?.title)!=="REST").length;
   const apply=()=>{ onApply(pins,scope); onClose(); };
-  const colorFor=t=>({PUSH:"#ff6b6b",PULL:"#4dabf7",LEGS:"#69db7c","UPPER PUMP":"#ffa94d",SWIM:"#4dd0ff",REST:"#6b6b7a"})[(t||"").toUpperCase()]||"#e8ff47";
+  const colorFor=t=>({PUSH:"#ff6b6b",PULL:"#4dabf7",LEGS:"#69db7c","UPPER PUMP":"#ffa94d",ARMS:"#c084fc",SWIM:"#4dd0ff",REST:"#6b6b7a"})[(t||"").toUpperCase()]||"#e8ff47";
   return h("div",{onClick:onClose,style:{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}},
     h("div",{onClick:e=>e.stopPropagation(),className:"toast",style:{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:"14px 14px 0 0",width:"100%",maxWidth:640,maxHeight:"92vh",overflowY:"auto",padding:"20px 18px calc(24px + env(safe-area-inset-bottom))"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
@@ -713,10 +732,10 @@ function WeekSetup({plan, todayKey, onApply, onClose, toast}){
 }
 
 // ═══════════════ BACKUP / DATA ═══════════════
-function DataModal({plan, log, history, onImport, onClose, toast}){
+function DataModal({plan, log, history, completions, onImport, onClose, toast}){
   const [tab,setTab]=useState("export");
   const [code,setCode]=useState("");
-  const payload=useMemo(()=>JSON.stringify({schema:SCHEMA,exported:Date.now(),plan,log,history}),[plan,log,history]);
+  const payload=useMemo(()=>JSON.stringify({schema:SCHEMA,exported:Date.now(),plan,log,history,completions}),[plan,log,history,completions]);
   const b64=useMemo(()=>{ try{ return btoa(unescape(encodeURIComponent(payload))); }catch{ return ""; } },[payload]);
   const download=()=>{ const blob=new Blob([payload],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="gym-coach-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); URL.revokeObjectURL(url); toast("Backup file downloaded"); };
   const copyCode=async()=>{ try{ await navigator.clipboard.writeText(b64); toast("Backup code copied"); }catch{ toast("Copy failed — select & copy manually"); } };
@@ -802,6 +821,7 @@ function App(){
   const [plan,setPlan]=useState(()=>load(LS.plan,null)||defaultPlan());
   const [log,setLog]=useState(()=>load(LS.log,{}));      // { itemId: {sets:[idx], weights:{idx:val}, reps:{idx:val}} }
   const [history,setHistory]=useState(()=>load(LS.history,[]));
+  const [completions,setCompletions]=useState(()=>load(LS.done,{})); // dayKey -> weekString it was completed in
   const [mode,setMode]=useState(()=>load(LS.mode,null));
   const [expanded,setExpanded]=useState({});
   const [showTimer,setShowTimer]=useState(false);
@@ -821,6 +841,25 @@ function App(){
   useEffect(()=>{ save(LS.history,history); },[history]);
   useEffect(()=>{ save(LS.swap,swap); },[swap]);
   useEffect(()=>{ save(LS.homeRot,homeRot); },[homeRot]);
+  useEffect(()=>{ save(LS.done,completions); },[completions]);
+  // On load / new week: expire completions from previous weeks and clear their leftover logs.
+  useEffect(()=>{
+    const wk=eestWeek();
+    const stale=Object.keys(completions).filter(dk=>completions[dk]!==wk);
+    if(stale.length){
+      setCompletions(c=>{ const n={...c}; stale.forEach(dk=>delete n[dk]); return n; });
+      setLog(l=>{ const n={...l}; stale.forEach(dk=>{ (plan[dk]?.items||[]).forEach(it=>delete n[it.id]); }); return n; });
+    }
+    // Migration: any workout already saved to History this week (under old code that
+    // didn't track completions) should show as completed for its day.
+    const add={};
+    (history||[]).forEach(entry=>{
+      if(entry && entry.dayKey && entry.date){
+        if(eestWeek(new Date(entry.date))===wk && completions[entry.dayKey]!==wk){ add[entry.dayKey]=wk; }
+      }
+    });
+    if(Object.keys(add).length){ setCompletions(c=>({...c,...add})); }
+  },[]); // run once on mount
   useEffect(()=>{ if(mode){save(LS.mode,mode); save(LS.schema,SCHEMA);} },[mode]);
 
   // Back-stack registrations (topmost open layer handles the swipe / closes first).
@@ -831,15 +870,17 @@ function App(){
   useBackHandler(!!confirm, ()=>setConfirm(null));
   // editDay & replaceTarget register their own back-handlers inside their components.
 
-  // First-launch mode selection, or re-opened via the logo
+  // Re-opened via the logo (mode already chosen) — quick level switch.
   if(!mode || showModeSelect) return h(ModeSelect,{current:mode,onBack:mode?()=>setShowModeSelect(false):null,onPick:m=>{setMode(m); setShowModeSelect(false); toast(m==="beginner"?"Beginner mode — curated, simple.":"Advanced mode — full library unlocked.");}});
 
   const day=plan[activeDay];
   const items=day.items||[];
+  const curWeek=eestWeek();
+  const dayCompleted=completions[activeDay]===curWeek;
   const isExpanded=id=>expanded[id];
   const getL=id=>log[id]||{sets:[],weights:{},reps:{}};
-  const exDone=id=>{ const it=items.find(i=>i.id===id); const l=getL(id); return it&&l.sets.length>=it.sets&&it.sets>0; };
-  const doneCount=items.filter(i=>exDone(i.id)).length;
+  const exDone=id=>{ if(dayCompleted) return true; const it=items.find(i=>i.id===id); const l=getL(id); return it&&l.sets.length>=it.sets&&it.sets>0; };
+  const doneCount=dayCompleted?items.length:items.filter(i=>exDone(i.id)).length;
   const pct=items.length?Math.round((doneCount/items.length)*100):0;
   const ringR=26,C=2*Math.PI*ringR,offset=C-(pct/100)*C;
 
@@ -854,9 +895,9 @@ function App(){
     if(!exercises.length){ toast("Log at least one set first"); setConfirm(null); return; }
     const entry={dayKey:activeDay,dayTitle:day.title||"Workout",date:Date.now(),exercises};
     setHistory(hh=>[...hh,entry]);
-    setLog(l=>{ const n={...l}; items.forEach(it=>delete n[it.id]); return n; });
+    setCompletions(c=>({...c,[activeDay]:eestWeek()})); // stays "done" until the week rolls over
     setConfirm(null);
-    toast("Workout saved to history 💪");
+    toast("Workout saved 💪 — stays done until Monday");
   };
   const lastLog=name=>{ for(let i=history.length-1;i>=0;i--){ const ex=(history[i].exercises||[]).find(e=>e.name===name); if(ex){ const mx=Math.max(0,...ex.sets.map(s=>parseFloat(s.weight)||0)); if(mx>0) return mx; } } return null; };
 
@@ -912,7 +953,7 @@ function App(){
     showTimer&&h(RestTimer,{onClose:()=>setShowTimer(false)}),
     editDay&&h(DayEditor,{dayKey:editDay,plan,setPlan,mode,toast,onClose:()=>setEditDay(null)}),
     replaceTarget&&h(ExercisePicker,{preselectCats:[replaceTarget.cat],mode,existingNames:items.map(i=>i.name),replaceMode:true,replaceName:replaceTarget.name,onReplace:doReplace,onClose:()=>setReplaceTarget(null)}),
-    showData&&h(DataModal,{plan,log,history,toast,onClose:()=>setShowData(false),onImport:obj=>{ setPlan(obj.plan); setLog(obj.log||{}); setHistory(obj.history||[]); setSwap(obj.swap||{}); }}),
+    showData&&h(DataModal,{plan,log,history,completions,toast,onClose:()=>setShowData(false),onImport:obj=>{ setPlan(obj.plan); setLog(obj.log||{}); setHistory(obj.history||[]); setSwap(obj.swap||{}); setCompletions(obj.completions||{}); }}),
     showWeek&&h(WeekSetup,{plan,todayKey:getTodayKey(),toast,onClose:()=>setShowWeek(false),onApply:applyWeek}),
     toastState&&h(Toast,{key:toastState.k,msg:toastState.msg,action:toastState.action,onAction:()=>{toastState.onAction&&toastState.onAction(); setToastState(null);},onDone:()=>setToastState(null)}),
 
@@ -955,8 +996,9 @@ function App(){
       // week strip
       h("div",{style:{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,padding:"14px 16px 0",marginBottom:16}},
         ...DAY_DEFS.map(d=>{ const isA=d.key===activeDay; const dp=plan[d.key]; const di=dp.items||[];
+          const dCompleted=completions[d.key]===curWeek;
           const dc=di.filter(it=>{ const l=log[it.id]; return l&&l.sets.length>=it.sets&&it.sets>0; }).length;
-          const allDone=di.length>0&&dc===di.length; const empty=di.length===0;
+          const allDone=dCompleted||(di.length>0&&dc===di.length); const empty=di.length===0;
           return h("button",{key:d.key,onClick:()=>setActiveDay(d.key),style:{background:isA?"var(--lime)":"var(--surface)",border:"1px solid "+(isA?"var(--lime)":"var(--border)"),color:isA?"var(--bg)":empty?"var(--dim)":"var(--muted)",padding:"8px 2px",borderRadius:5,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:"0.56rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em"}},
             h("span",null,d.label),
             h("span",{style:{fontSize:"0.6rem",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},dp.title||"—"),
@@ -1034,8 +1076,13 @@ function App(){
                 h("button",{onClick:()=>setShowTimer(true),style:{flex:1,padding:"8px",background:"rgba(71,200,255,0.07)",border:"1px solid rgba(71,200,255,0.2)",borderRadius:5,cursor:"pointer",color:"var(--cyan)",fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}},"⏱ Rest timer"),
                 h("button",{onClick:()=>setReplaceTarget(it),style:{flex:1,padding:"8px",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:5,cursor:"pointer",color:"var(--muted)",fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}},"⇄ Replace")))); }),
 
-        // finish workout
-        items.length>0&&h("button",{onClick:()=>setConfirm({icon:"🏁",title:"Finish workout?",body:"Logged sets will be saved to your history, and today's checkboxes will reset for next time.",yes:"Save to history",onYes:finishDay}),style:{width:"100%",marginTop:14,padding:"15px",background:doneCount>0?"var(--lime)":"var(--surface)",border:doneCount>0?"none":"1px solid var(--border)",borderRadius:8,color:doneCount>0?"var(--bg)":"var(--muted)",fontWeight:800,fontSize:"0.86rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"🏁 Finish & save workout"),
+        // finish workout / completed state
+        items.length>0&&(dayCompleted
+          ? h("div",{style:{marginTop:14}},
+              h("div",{style:{width:"100%",padding:"15px",background:"rgba(45,205,122,0.12)",border:"1px solid rgba(45,205,122,0.4)",borderRadius:8,color:"var(--green)",fontWeight:800,fontSize:"0.86rem",letterSpacing:"0.04em",textTransform:"uppercase",textAlign:"center"}},"✓ Completed this week"),
+              h("div",{style:{fontSize:"0.62rem",color:"var(--muted)",textAlign:"center",marginTop:6}},"Saved to history · resets Monday"),
+              h("button",{onClick:()=>setConfirm({icon:"↩️",title:"Mark as not done?",body:"This clears today's completed status so you can log it again. Your history entry stays saved.",yes:"Reopen day",onYes:()=>{ setCompletions(c=>{ const n={...c}; delete n[activeDay]; return n; }); setConfirm(null); toast("Day reopened"); }}),style:{width:"100%",marginTop:8,padding:"9px",background:"transparent",border:"1px solid var(--border)",borderRadius:6,color:"var(--muted)",fontSize:"0.62rem",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer"}},"↩️ Reopen / log again"))
+          : h("button",{onClick:()=>setConfirm({icon:"🏁",title:"Finish workout?",body:"Logged sets are saved to your history, and this day stays marked complete until the week ends (Monday).",yes:"Save & complete",onYes:finishDay}),style:{width:"100%",marginTop:14,padding:"15px",background:doneCount>0?"var(--lime)":"var(--surface)",border:doneCount>0?"none":"1px solid var(--border)",borderRadius:8,color:doneCount>0?"var(--bg)":"var(--muted)",fontWeight:800,fontSize:"0.86rem",letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer"}},"🏁 Finish & save workout")),
 
         // templates
         h("div",{style:{display:"flex",gap:8,marginTop:8}},
