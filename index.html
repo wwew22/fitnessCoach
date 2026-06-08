@@ -887,7 +887,7 @@ function App(){
   const toggleExpand=id=>setExpanded(e=>({...e,[id]:!e[id]}));
   const toggleSet=(id,idx,total)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const sets=cur.sets.includes(idx)?cur.sets.filter(x=>x!==idx):[...cur.sets,idx]; return {...l,[id]:{...cur,sets}}; });
   const toggleAll=(id,total)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const all=cur.sets.length>=total; return {...l,[id]:{...cur,sets:all?[]:Array.from({length:total},(_,i)=>i)}}; });
-  const setW=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; return {...l,[id]:{...cur,weights:{...cur.weights,[idx]:v}}}; });
+  const setW=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const nv=String(v).replace(",","."); return {...l,[id]:{...cur,weights:{...cur.weights,[idx]:nv}}}; });
   const setR=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; return {...l,[id]:{...cur,reps:{...cur.reps,[idx]:v}}}; });
 
   const finishDay=()=>{
@@ -1068,7 +1068,7 @@ function App(){
                   return h("div",{key:i,style:{display:"flex",alignItems:"center",gap:7}},
                     h("div",{onClick:()=>toggleSet(id,i,it.sets),style:{width:32,height:32,borderRadius:5,flexShrink:0,border:"1.5px solid "+(sd?"var(--green)":"var(--border)"),background:sd?"rgba(45,205,122,0.15)":"var(--surface2)",display:"flex",alignItems:"center",justifyContent:"center",color:sd?"var(--green)":"var(--muted)",fontSize:"0.72rem",fontWeight:700,cursor:"pointer"},className:"mono"},sd?"✓":i+1),
                     h("div",{style:{flex:1,position:"relative"}},
-                      h("input",{type:"number",inputMode:"decimal",placeholder:"0",value:wv,onChange:e=>setW(id,i,e.target.value),onClick:e=>e.stopPropagation(),className:"mono",style:{width:"100%",background:"var(--surface2)",border:"1px solid "+(sd?"rgba(45,205,122,0.3)":"var(--border)"),color:wv?"var(--lime)":"var(--dim)",fontSize:"0.88rem",fontWeight:700,padding:"7px 30px 7px 10px",borderRadius:5,outline:"none"}}),
+                      h("input",{type:"text",inputMode:"decimal",placeholder:"0",value:wv,onChange:e=>setW(id,i,e.target.value),onClick:e=>e.stopPropagation(),className:"mono",style:{width:"100%",background:"var(--surface2)",border:"1px solid "+(sd?"rgba(45,205,122,0.3)":"var(--border)"),color:wv?"var(--lime)":"var(--dim)",fontSize:"0.88rem",fontWeight:700,padding:"7px 30px 7px 10px",borderRadius:5,outline:"none"}}),
                       h("span",{style:{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",fontSize:"0.56rem",color:"var(--muted)",fontWeight:600,pointerEvents:"none"}},"kg")),
                     h("div",{style:{flex:0.7,position:"relative"}},
                       h("input",{type:"number",inputMode:"numeric",placeholder:"reps",value:rv,onChange:e=>setR(id,i,e.target.value),onClick:e=>e.stopPropagation(),className:"mono",style:{width:"100%",background:"var(--surface2)",border:"1px solid "+(sd?"rgba(45,205,122,0.3)":"var(--border)"),color:rv?"var(--cyan)":"var(--dim)",fontSize:"0.88rem",fontWeight:700,padding:"7px 10px",borderRadius:5,outline:"none",textAlign:"center"}}))); })),
