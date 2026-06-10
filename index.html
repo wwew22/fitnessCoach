@@ -901,8 +901,14 @@ function App(){
   const toggleExpand=id=>setExpanded(e=>({...e,[id]:!e[id]}));
   const toggleSet=(id,idx,total)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const sets=cur.sets.includes(idx)?cur.sets.filter(x=>x!==idx):[...cur.sets,idx]; return {...l,[id]:{...cur,sets}}; });
   const toggleAll=(id,total)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const all=cur.sets.length>=total; return {...l,[id]:{...cur,sets:all?[]:Array.from({length:total},(_,i)=>i)}}; });
-  const setW=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const nv=String(v).replace(",","."); return {...l,[id]:{...cur,weights:{...cur.weights,[idx]:nv}}}; });
-  const setR=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; return {...l,[id]:{...cur,reps:{...cur.reps,[idx]:v}}}; });
+  const setW=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const nv=String(v).replace(",","."); const weights={...cur.weights,[idx]:nv}; let sets=cur.sets; const bothFilled=String(nv).trim()!==""&&String(cur.reps[idx]||"").trim()!==""; if(bothFilled&&!sets.includes(idx)) sets=[...sets,idx]; return {...l,[id]:{...cur,weights,sets}}; });
+  const setR=(id,idx,v)=>setLog(l=>{ const cur=l[id]||{sets:[],weights:{},reps:{}}; const reps={...cur.reps,[idx]:v}; let sets=cur.sets; const bothFilled=String(v).trim()!==""&&String(cur.weights[idx]||"").trim()!==""; if(bothFilled&&!sets.includes(idx)) sets=[...sets,idx]; return {...l,[id]:{...cur,reps,sets}}; });
+  const changeSets=(id,delta)=>{
+    setPlan(p=>({...p,[activeDay]:{...p[activeDay],items:p[activeDay].items.map(it=>{ if(it.id!==id) return it; const ns=Math.max(1,Math.min(10,(parseInt(it.sets)||1)+delta)); return {...it,sets:ns}; })}}));
+    if(delta<0){ // dropping a set: clear any logged data for the removed top index
+      setLog(l=>{ const cur=l[id]; if(!cur) return l; const it=(plan[activeDay].items||[]).find(x=>x.id===id); const oldN=parseInt(it?.sets)||1; const removedIdx=oldN-1; const sets=cur.sets.filter(x=>x!==removedIdx); const weights={...cur.weights}; const reps={...cur.reps}; delete weights[removedIdx]; delete reps[removedIdx]; return {...l,[id]:{...cur,sets,weights,reps}}; });
+    }
+  };
 
   const finishDay=()=>{
     const exercises=items.map(it=>{ const l=getL(it.id); if(!l.sets.length) return null; return {name:it.name,cat:it.cat,sets:l.sets.sort((a,b)=>a-b).map(idx=>({set:idx+1,weight:l.weights[idx]||"",reps:l.reps[idx]||""}))}; }).filter(Boolean);
@@ -1077,6 +1083,12 @@ function App(){
               h("span",{style:{fontSize:"0.5rem",color:"var(--muted)",transform:exp?"rotate(180deg)":"none",transition:"transform 0.2s",flexShrink:0}},"▼")),
             exp&&h("div",{style:{padding:"0 13px 14px"}},
               (it.tip||(meta&&meta.tip))&&h("div",{style:{fontSize:"0.68rem",color:"var(--muted)",background:"var(--surface2)",borderRadius:5,padding:"8px 10px",marginBottom:10,lineHeight:1.5,borderLeft:"2px solid "+(mode==="beginner"?"var(--green)":"var(--cyan)")}},"💡 "+(it.tip||meta.tip)),
+              h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9,padding:"6px 2px"}},
+                h("span",{style:{fontSize:"0.6rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600}},"Sets"),
+                h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                  h("button",{onClick:()=>changeSets(id,-1),disabled:it.sets<=1,style:{width:28,height:28,borderRadius:6,border:"1px solid var(--border)",background:"var(--surface2)",color:it.sets<=1?"var(--dim)":"var(--orange)",fontSize:"1.1rem",fontWeight:700,lineHeight:1,cursor:it.sets<=1?"default":"pointer"}},"−"),
+                  h("span",{className:"mono",style:{minWidth:18,textAlign:"center",fontWeight:700,fontSize:"0.95rem",color:"var(--text)"}},it.sets),
+                  h("button",{onClick:()=>changeSets(id,1),disabled:it.sets>=10,style:{width:28,height:28,borderRadius:6,border:"1px solid var(--border)",background:"var(--surface2)",color:it.sets>=10?"var(--dim)":"var(--green)",fontSize:"1.05rem",fontWeight:700,lineHeight:1,cursor:it.sets>=10?"default":"pointer"}},"+"))),
               h("div",{style:{display:"flex",flexDirection:"column",gap:7}},
                 ...Array.from({length:it.sets},(_,i)=>{ const sd=l.sets.includes(i); const wv=l.weights[i]||""; const rv=l.reps[i]||"";
                   return h("div",{key:i,style:{display:"flex",alignItems:"center",gap:7}},
